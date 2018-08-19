@@ -111,7 +111,12 @@ class HyperbandSearchCV(BaseSearchCV):
         The inverse of the proportion of configurations that are discarded
         in each round of hyperband.
 
-    max_iter : int
+    min_iter : int, default=1
+        The minim amount of resource that should be allocated to the cost
+        parameter ``resource_param`` for a single configuration of the
+        hyperparameters.
+
+    max_iter : int, default=81
         The maximum amount of resource that can be allocated to the cost
         parameter ``resource_param`` for a single configuration of the
         hyperparameters.
@@ -345,16 +350,19 @@ class HyperbandSearchCV(BaseSearchCV):
         param_distributions.
 
     """
-    def __init__(self, estimator, param_distributions, eta=3, max_iter=81,
-                 resource_param='n_estimators', scoring=None, n_jobs=1,
-                 iid=True, refit=True, cv=None,
+    def __init__(self, estimator, param_distributions,
+                 resource_param='n_estimators', eta=3, min_iter=1,
+                 max_iter=81, scoring=None, n_jobs=1, iid=True,
+                 refit=True, cv=None,
                  verbose=0, pre_dispatch='2*n_jobs', random_state=None,
                  error_score='raise', return_train_score=False):
         self.param_distributions = param_distributions
-        self.eta = eta
-        self.max_iter = max_iter
         self.resource_param = resource_param
+        self.eta = eta
+        self.min_iter = min_iter
+        self.max_iter = max_iter
         self.random_state = random_state
+
         super(HyperbandSearchCV, self).__init__(
             estimator=estimator, scoring=scoring, fit_params=None,
             n_jobs=n_jobs, iid=iid, refit=refit, cv=cv, verbose=verbose,
@@ -479,7 +487,7 @@ class HyperbandSearchCV(BaseSearchCV):
         random_state = check_random_state(self.random_state)
 
         # Here is where hyperband comes into play
-        s_max = int(np.floor(np.log(self.max_iter) / np.log(self.eta)))
+        s_max = int(np.floor(np.log(self.max_iter / self.min_iter) / np.log(self.eta)))
         B = (s_max + 1) * self.max_iter
 
         all_results = []
@@ -577,17 +585,21 @@ if __name__ == '__main__':
     # build a classifier
     clf = RandomForestClassifier(n_estimators=20)
 
-    search = HyperbandSearchCV(estimator=clf, param_distributions=param_dist)
+    search = HyperbandSearchCV(estimator=clf, param_distributions=param_dist, min_iter=3)
 
     search.fit(X, y)
 
     print(search.best_estimator_)
     print(search.best_params_)
     print(search.best_score_)
-
     print('\n\n')
     import pandas as pd
     print(pd.DataFrame(search.cv_results_))
+    print('\n\n')
+
+    print(pd.DataFrame(search.cv_results_)['param_n_estimators'].min())
+    print(pd.DataFrame(search.cv_results_)['param_n_estimators'].max())
+
 
 
 
