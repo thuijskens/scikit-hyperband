@@ -1,0 +1,45 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/python:3.6.1
+    environment:
+      - USERNAME: "thuijskens"
+      - DOC_REPO: "scikit-hyperband"
+      - DOC_URL: "docs"
+      - EMAIL: "thomas_huijskens@hotmail.com"
+      - MINICONDA_PATH: ~/miniconda
+      - CONDA_ENV_NAME: testenv
+      - PYTHON_VERSION: 3
+
+    steps:
+      - checkout
+      - run: ./ci_scripts/circleci/checkout_merge_commit.sh
+      - run: ./ci_scripts/circleci/build_doc.sh
+      - store_artifacts:
+          path: doc/_build/html
+          destination: doc
+      - store_artifacts:
+          path: ~/log.txt
+      - persist_to_workspace:
+          root: doc/_build/html
+          paths: .
+      - attach_workspace:
+          at: doc/_build/html
+      - run: ls -ltrh doc/_build/html
+      - deploy:
+          command: |
+            if [[ "${CIRCLE_BRANCH}" =~ ^master$|^[0-9]+\.[0-9]+\.X$ ]]; then
+              bash ./ci_scripts/circleci/push_doc.sh doc/_build/html
+            fi
+    filters:
+      branches:
+        ignore:
+           - gh-pages
+
+
+workflows:
+  version: 2
+  build-doc-and-deploy:
+    jobs:
+      - build
