@@ -107,6 +107,12 @@ class HyperbandSearchCV(BaseSearchCV):
         method for sampling (such as those from scipy.stats.distributions).
         If a list is given, it is sampled uniformly.
 
+    resource_param : str
+        The name of the cost parameter for the estimator ``estimator``
+        to be fitted. Typically, this is the number of decision trees
+        ``n_estimators`` in an ensemble or the number of iterations
+        for estimators trained with stochastic gradient descent.
+
     eta : float
         The inverse of the proportion of configurations that are discarded
         in each round of hyperband.
@@ -121,11 +127,11 @@ class HyperbandSearchCV(BaseSearchCV):
         parameter ``resource_param`` for a single configuration of the
         hyperparameters.
 
-    resource_param : str
-        The name of the cost parameter for the estimator ``estimator``
-        to be fitted. Typically, this is the number of decision trees
-        ``n_estimators`` in an ensemble or the number of iterations
-        for estimators trained with stochastic gradient descent.
+    skip_last : int, default=0
+        The number of last rounds to skip. For example, this can be used
+        to skip the last round of hyperband, which is standard randomized
+        search. It can also be used to inspect intermediate results,
+        although warm-starting HyperbandSearchCV is not supported.
 
     scoring : string, callable, list/tuple, dict or None, default: None
         A single string (see :ref:`scoring_parameter`) or a callable
@@ -352,8 +358,8 @@ class HyperbandSearchCV(BaseSearchCV):
     """
     def __init__(self, estimator, param_distributions,
                  resource_param='n_estimators', eta=3, min_iter=1,
-                 max_iter=81, scoring=None, n_jobs=1, iid=True,
-                 refit=True, cv=None,
+                 max_iter=81, skip_last=0, scoring=None, n_jobs=1,
+                 iid=True, refit=True, cv=None,
                  verbose=0, pre_dispatch='2*n_jobs', random_state=None,
                  error_score='raise', return_train_score=False):
         self.param_distributions = param_distributions
@@ -361,6 +367,7 @@ class HyperbandSearchCV(BaseSearchCV):
         self.eta = eta
         self.min_iter = min_iter
         self.max_iter = max_iter
+        self.skip_last = skip_last
         self.random_state = random_state
 
         super(HyperbandSearchCV, self).__init__(
@@ -479,6 +486,33 @@ class HyperbandSearchCV(BaseSearchCV):
         else:
             refit_metric = 'score'
 
+        if not isinstance(self.min_iter, int) or self.min_iter <= 0:
+            raise ValueError('min_iter should be a positive integer, got %s' %
+                             self.min_iter)
+
+        if not isinstance(self.max_iter, int) or self.max_iter <= 0:
+            raise ValueError('max_iter should be a positive integer, got %s' %
+                             self.max_iter)
+
+        if self.max_iter < self.min_iter:
+            raise ValueError('max_iter should be bigger than min_iter, got'
+                             'max_iter=%d and min_iter=%d' % (self.max_iter,
+                                                              self.min_iter))
+
+        if not isinstance(self.skip_last, int) or self.skip_last < 0:
+            raise ValueError('skip_last should be an integer, got %s' %
+                             self.skip_last)
+
+        if not isinstance(self.eta, int) or not self.eta > 1:
+            raise ValueError('eta should be a positive integer, got %s' %
+                             self.eta)
+
+        if self.resource_param not in self.estimator.get_params().keys():
+            raise ValueError('resource_param is set to %s, but base_estimator %s '
+                             'does not have a parameter with that name' %
+                             (self.resource_param,
+                              self.estimator.__class__.__name__))
+
         X, y, groups = indexable(X, y, groups)
         n_splits = cv.get_n_splits(X, y, groups)
 
@@ -490,9 +524,12 @@ class HyperbandSearchCV(BaseSearchCV):
         s_max = int(np.floor(np.log(self.max_iter / self.min_iter) / np.log(self.eta)))
         B = (s_max + 1) * self.max_iter
 
+        if self.skip_last > s_max:
+            raise ValueError('skip_last is higher than the total number of rounds')
+
         all_results = []
 
-        for s in range(s_max, -1, -1):
+        for round_index, s in enumerate(reversed(range(s_max + 1))):
             n = int(np.ceil(B / self.max_iter / (s + 1) * np.power(self.eta, s)))
 
             # initial number of iterations per config
@@ -501,10 +538,29 @@ class HyperbandSearchCV(BaseSearchCV):
                                                    n_iter=n,
                                                    random_state=random_state))
 
-            for i in range(s + 1):
+            if self.verbose > 0:
+                print('Starting round {0} (out of {1}) of hyperband, fitting '
+                      '{2} candidates'
+                      .format(round_index + 1, s_max + 1, n))
+
+            for i in range((s + 1) - self.skip_last):
+
                 n_configs = np.floor(n / np.power(self.eta, i))  # n_i
                 n_iterations = int(r * np.power(self.eta, i))  # r_i
                 n_to_keep = int(np.floor(n_configs / self.eta))
+
+                if self.verbose > 0:
+                    msg = ('Starting successive halving iteration {0} out of'
+                           ' {1}. Fitting {2} configurations, with'
+                           ' resource_param {3} set to {4}')
+
+                    if n_to_keep > 0:
+                        msg += ', and keeping the best {5} configurations.'
+
+                    msg = msg.format(i + 1, s + 1, len(configurations),
+                                     self.resource_param, n_iterations,
+                                     n_to_keep)
+                    print(msg)
 
                 # Create a queue with jobs for joblib
                 jobs = []
@@ -535,6 +591,10 @@ class HyperbandSearchCV(BaseSearchCV):
                                                                key=lambda x: x[0])]
 
                     configurations = top_configurations[:n_to_keep]
+
+            if self.skip_last > 0:
+                print('Skipping the last {0} successive halving iterations'
+                      .format(self.skip_last))
 
         # Collect all results. This is where hyperband ends and sklearn code
         # takes over
@@ -585,7 +645,8 @@ if __name__ == '__main__':
     # build a classifier
     clf = RandomForestClassifier(n_estimators=20)
 
-    search = HyperbandSearchCV(estimator=clf, param_distributions=param_dist, min_iter=3)
+    search = HyperbandSearchCV(estimator=clf, param_distributions=param_dist, min_iter=3,
+                               skip_last=0, verbose=1)
 
     search.fit(X, y)
 
