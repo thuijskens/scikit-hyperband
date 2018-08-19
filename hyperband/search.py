@@ -383,10 +383,10 @@ class HyperbandSearchCV(BaseSearchCV):
         # if one choose to see train score, "out" will contain train score info
         if self.return_train_score:
             (train_score_dicts, test_score_dicts, test_sample_counts,
-             fit_time, score_time, parameters) = zip(*out)
+             fit_time, score_time, parameters, bracket) = zip(*out)
         else:
             (test_score_dicts, test_sample_counts,
-             fit_time, score_time, parameters) = zip(*out)
+             fit_time, score_time, parameters, bracket) = zip(*out)
 
         candidate_params = parameters[::n_splits]
         n_candidates = len(candidate_params)
@@ -437,6 +437,7 @@ class HyperbandSearchCV(BaseSearchCV):
             results, n_splits, n_candidates, 'fit_time', fit_time)
         results = _store_results(
             results, n_splits, n_candidates, 'score_time', score_time)
+        results['hyperband_bracket'] = np.array(bracket[::n_splits])
 
         best_index = results["rank_test_%s" % refit_metric].argmin()
 
@@ -585,6 +586,8 @@ class HyperbandSearchCV(BaseSearchCV):
                 out = Parallel(
                     n_jobs=self.n_jobs, verbose=self.verbose,
                     pre_dispatch=pre_dispatch)(jobs)
+                # Add hyperband bracket to output
+                out = [[*run, s + 1] for run in out]
                 all_results += out
 
                 if n_to_keep > 0:
@@ -625,41 +628,3 @@ class HyperbandSearchCV(BaseSearchCV):
         self.n_splits_ = n_splits
 
         return self
-
-
-if __name__ == '__main__':
-    from sklearn.datasets import load_digits
-    from sklearn.ensemble import RandomForestClassifier
-
-    from scipy.stats import randint as sp_randint
-
-    # generate some fake data and model
-    # get some data
-    digits = load_digits()
-    X, y = digits.data, digits.target
-
-    param_dist = {"max_depth": [3, None],
-                  "max_features": sp_randint(1, 11),
-                  "min_samples_split": sp_randint(2, 11),
-                  "min_samples_leaf": sp_randint(1, 11),
-                  "bootstrap": [True, False],
-                  "criterion": ["gini", "entropy"]}
-
-    # build a classifier
-    clf = RandomForestClassifier(n_estimators=20)
-
-    search = HyperbandSearchCV(estimator=clf, param_distributions=param_dist, min_iter=1,
-                               skip_last=0, verbose=1)
-
-    search.fit(X, y)
-
-    print(search.best_estimator_)
-    print(search.best_params_)
-    print(search.best_score_)
-    print('\n\n')
-    import pandas as pd
-    print(pd.DataFrame(search.cv_results_))
-    print('\n\n')
-
-    print(pd.DataFrame(search.cv_results_)['param_n_estimators'].min())
-    print(pd.DataFrame(search.cv_results_)['param_n_estimators'].max())
