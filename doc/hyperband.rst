@@ -1,7 +1,7 @@
-Stability selection
-===================
+Hyperband
+=========
 
-The documentation of the stability_selection module.
+The documentation of the scikit-hyperband module.
 
-.. automodule:: stability_selection.stability_selection
+.. automodule:: hyperband.hyperband
    :members:
