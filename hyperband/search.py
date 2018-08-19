@@ -442,6 +442,34 @@ class HyperbandSearchCV(BaseSearchCV):
 
         return results, best_index
 
+    def _validate_input(self):
+        if not isinstance(self.min_iter, int) or self.min_iter <= 0:
+            raise ValueError('min_iter should be a positive integer, got %s' %
+                             self.min_iter)
+
+        if not isinstance(self.max_iter, int) or self.max_iter <= 0:
+            raise ValueError('max_iter should be a positive integer, got %s' %
+                             self.max_iter)
+
+        if self.max_iter < self.min_iter:
+            raise ValueError('max_iter should be bigger than min_iter, got'
+                             'max_iter=%d and min_iter=%d' % (self.max_iter,
+                                                              self.min_iter))
+
+        if not isinstance(self.skip_last, int) or self.skip_last < 0:
+            raise ValueError('skip_last should be an integer, got %s' %
+                             self.skip_last)
+
+        if not isinstance(self.eta, int) or not self.eta > 1:
+            raise ValueError('eta should be a positive integer, got %s' %
+                             self.eta)
+
+        if self.resource_param not in self.estimator.get_params().keys():
+            raise ValueError('resource_param is set to %s, but base_estimator %s '
+                             'does not have a parameter with that name' %
+                             (self.resource_param,
+                              self.estimator.__class__.__name__))
+
     def fit(self, X, y=None, groups=None, **fit_params):
         """Run fit with all sets of parameters.
 
@@ -486,33 +514,6 @@ class HyperbandSearchCV(BaseSearchCV):
         else:
             refit_metric = 'score'
 
-        if not isinstance(self.min_iter, int) or self.min_iter <= 0:
-            raise ValueError('min_iter should be a positive integer, got %s' %
-                             self.min_iter)
-
-        if not isinstance(self.max_iter, int) or self.max_iter <= 0:
-            raise ValueError('max_iter should be a positive integer, got %s' %
-                             self.max_iter)
-
-        if self.max_iter < self.min_iter:
-            raise ValueError('max_iter should be bigger than min_iter, got'
-                             'max_iter=%d and min_iter=%d' % (self.max_iter,
-                                                              self.min_iter))
-
-        if not isinstance(self.skip_last, int) or self.skip_last < 0:
-            raise ValueError('skip_last should be an integer, got %s' %
-                             self.skip_last)
-
-        if not isinstance(self.eta, int) or not self.eta > 1:
-            raise ValueError('eta should be a positive integer, got %s' %
-                             self.eta)
-
-        if self.resource_param not in self.estimator.get_params().keys():
-            raise ValueError('resource_param is set to %s, but base_estimator %s '
-                             'does not have a parameter with that name' %
-                             (self.resource_param,
-                              self.estimator.__class__.__name__))
-
         X, y, groups = indexable(X, y, groups)
         n_splits = cv.get_n_splits(X, y, groups)
 
@@ -530,7 +531,10 @@ class HyperbandSearchCV(BaseSearchCV):
         all_results = []
 
         for round_index, s in enumerate(reversed(range(s_max + 1))):
-            n = int(np.ceil(B / self.max_iter / (s + 1) * np.power(self.eta, s)))
+            # NOTE: The formula is taken directly from the paper, but the generated
+            # n_i and r_i values for the defaults do not correspond to those in
+            # Table 1 of the paper.
+            n = int(np.ceil(B / self.max_iter * np.power(self.eta, s) / (s + 1)))
 
             # initial number of iterations per config
             r = self.max_iter / np.power(self.eta, s)
@@ -539,9 +543,8 @@ class HyperbandSearchCV(BaseSearchCV):
                                                    random_state=random_state))
 
             if self.verbose > 0:
-                print('Starting round {0} (out of {1}) of hyperband, fitting '
-                      '{2} candidates'
-                      .format(round_index + 1, s_max + 1, n))
+                print('Starting bracket {0} (out of {1}) of hyperband'
+                      .format(round_index + 1, s_max + 1))
 
             for i in range((s + 1) - self.skip_last):
 
@@ -645,7 +648,7 @@ if __name__ == '__main__':
     # build a classifier
     clf = RandomForestClassifier(n_estimators=20)
 
-    search = HyperbandSearchCV(estimator=clf, param_distributions=param_dist, min_iter=3,
+    search = HyperbandSearchCV(estimator=clf, param_distributions=param_dist, min_iter=1,
                                skip_last=0, verbose=1)
 
     search.fit(X, y)
@@ -660,7 +663,3 @@ if __name__ == '__main__':
 
     print(pd.DataFrame(search.cv_results_)['param_n_estimators'].min())
     print(pd.DataFrame(search.cv_results_)['param_n_estimators'].max())
-
-
-
-
