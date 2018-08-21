@@ -151,6 +151,571 @@
   <div class="section" id="hyperband">
 <h1>Hyperband<a class="headerlink" href="#hyperband" title="Permalink to this headline">¶</a></h1>
 <p>The documentation of the scikit-hyperband module.</p>
+<span class="target" id="module-hyperband"></span><dl class="class">
+<dt id="hyperband.HyperbandSearchCV">
+<em class="property">class </em><code class="descclassname">hyperband.</code><code class="descname">HyperbandSearchCV</code><span class="sig-paren">(</span><em>estimator</em>, <em>param_distributions</em>, <em>resource_param='n_estimators'</em>, <em>eta=3</em>, <em>min_iter=1</em>, <em>max_iter=81</em>, <em>skip_last=0</em>, <em>scoring=None</em>, <em>n_jobs=1</em>, <em>iid=True</em>, <em>refit=True</em>, <em>cv=None</em>, <em>verbose=0</em>, <em>pre_dispatch='2*n_jobs'</em>, <em>random_state=None</em>, <em>error_score='raise'</em>, <em>return_train_score=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/hyperband/search.html#HyperbandSearchCV"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#hyperband.HyperbandSearchCV" title="Permalink to this definition">¶</a></dt>
+<dd><p>Hyperband search on hyper parameters.</p>
+<p>HyperbandSearchCV implements a <code class="docutils literal notranslate"><span class="pre">fit</span></code> and a <code class="docutils literal notranslate"><span class="pre">score</span></code> method.
+It also implements <code class="docutils literal notranslate"><span class="pre">predict</span></code>, <code class="docutils literal notranslate"><span class="pre">predict_proba</span></code>, <code class="docutils literal notranslate"><span class="pre">decision_function</span></code>,
+<code class="docutils literal notranslate"><span class="pre">transform</span></code> and <code class="docutils literal notranslate"><span class="pre">inverse_transform</span></code> if they are implemented in the
+estimator used.</p>
+<p>The parameters of the estimator used to apply these methods are optimized
+by cross-validated search over parameter settings using the hyperband
+algorithm <a class="reference internal" href="#r8bc819a27e7e-1" id="id1">[1]</a> .</p>
+<p>If all parameters are presented as a list,
+sampling without replacement is performed. If at least one parameter
+is given as a distribution, sampling with replacement is used.
+It is highly recommended to use continuous distributions for continuous
+parameters.</p>
+<p>Read more in the scikit-learn <a class="reference external" href="http://scikit-learn.org/stable/modules/grid_search.html#randomized-parameter-search">User Guide</a>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><dl class="first last docutils">
+<dt><strong>estimator</strong> <span class="classifier-delimiter">:</span> <span class="classifier">estimator object.</span></dt>
+<dd><p class="first last">A object of that type is instantiated for each grid point.
+This is assumed to implement the scikit-learn estimator interface.
+Either estimator needs to provide a <code class="docutils literal notranslate"><span class="pre">score</span></code> function,
+or <code class="docutils literal notranslate"><span class="pre">scoring</span></code> must be passed.</p>
+</dd>
+<dt><strong>param_distributions</strong> <span class="classifier-delimiter">:</span> <span class="classifier">dict</span></dt>
+<dd><p class="first last">Dictionary with parameters names (string) as keys and distributions
+or lists of parameters to try. Distributions must provide a <code class="docutils literal notranslate"><span class="pre">rvs</span></code>
+method for sampling (such as those from scipy.stats.distributions).
+If a list is given, it is sampled uniformly.</p>
+</dd>
+<dt><strong>resource_param</strong> <span class="classifier-delimiter">:</span> <span class="classifier">str, default=’n_estimators’</span></dt>
+<dd><p class="first last">The name of the cost parameter for the estimator <code class="docutils literal notranslate"><span class="pre">estimator</span></code>
+to be fitted. Typically, this is the number of decision trees
+<code class="docutils literal notranslate"><span class="pre">n_estimators</span></code> in an ensemble or the number of iterations
+for estimators trained with stochastic gradient descent.</p>
+</dd>
+<dt><strong>eta</strong> <span class="classifier-delimiter">:</span> <span class="classifier">float, default=3</span></dt>
+<dd><p class="first last">The inverse of the proportion of configurations that are discarded
+in each round of hyperband.</p>
+</dd>
+<dt><strong>min_iter</strong> <span class="classifier-delimiter">:</span> <span class="classifier">int, default=1</span></dt>
+<dd><p class="first last">The minimum amount of resource that should be allocated to the cost
+parameter <code class="docutils literal notranslate"><span class="pre">resource_param</span></code> for a single configuration of the
+hyperparameters.</p>
+</dd>
+<dt><strong>max_iter</strong> <span class="classifier-delimiter">:</span> <span class="classifier">int, default=81</span></dt>
+<dd><p class="first last">The maximum amount of resource that can be allocated to the cost
+parameter <code class="docutils literal notranslate"><span class="pre">resource_param</span></code> for a single configuration of the
+hyperparameters.</p>
+</dd>
+<dt><strong>skip_last</strong> <span class="classifier-delimiter">:</span> <span class="classifier">int, default=0</span></dt>
+<dd><p class="first last">The number of last rounds to skip. For example, this can be used
+to skip the last round of hyperband, which is standard randomized
+search. It can also be used to inspect intermediate results,
+although warm-starting HyperbandSearchCV is not supported.</p>
+</dd>
+<dt><strong>scoring</strong> <span class="classifier-delimiter">:</span> <span class="classifier">string, callable, list/tuple, dict or None, default: None</span></dt>
+<dd><p class="first">A single string (see <span class="xref std std-ref">scoring_parameter</span>) or a callable
+(see <span class="xref std std-ref">scoring</span>) to evaluate the predictions on the test set.</p>
+<p>For evaluating multiple metrics, either give a list of (unique) strings
+or a dict with names as keys and callables as values.</p>
+<p>NOTE that when using custom scorers, each scorer should return a single
+value. Metric functions returning a list/array of values can be wrapped
+into multiple scorers that return one value each.</p>
+<p>See <span class="xref std std-ref">multimetric_grid_search</span> for an example.</p>
+<p class="last">If None, the estimator’s default scorer (if available) is used.</p>
+</dd>
+<dt><strong>n_jobs</strong> <span class="classifier-delimiter">:</span> <span class="classifier">int, default=1</span></dt>
+<dd><p class="first last">Number of jobs to run in parallel.</p>
+</dd>
+<dt><strong>pre_dispatch</strong> <span class="classifier-delimiter">:</span> <span class="classifier">int, or string, optional</span></dt>
+<dd><p class="first">Controls the number of jobs that get dispatched during parallel
+execution. Reducing this number can be useful to avoid an
+explosion of memory consumption when more jobs get dispatched
+than CPUs can process. This parameter can be:</p>
+<blockquote class="last">
+<div><ul class="simple">
+<li>None, in which case all the jobs are immediately
+created and spawned. Use this for lightweight and
+fast-running jobs, to avoid delays due to on-demand
+spawning of the jobs</li>
+<li>An int, giving the exact number of total jobs that are
+spawned</li>
+<li>A string, giving an expression as a function of n_jobs,
+as in ‘2*n_jobs’</li>
+</ul>
+</div></blockquote>
+</dd>
+<dt><strong>iid</strong> <span class="classifier-delimiter">:</span> <span class="classifier">boolean, default=True</span></dt>
+<dd><p class="first last">If True, the data is assumed to be identically distributed across
+the folds, and the loss minimized is the total loss per sample,
+and not the mean loss across the folds.</p>
+</dd>
+<dt><strong>cv</strong> <span class="classifier-delimiter">:</span> <span class="classifier">int, cross-validation generator or an iterable, optional</span></dt>
+<dd><p class="first">Determines the cross-validation splitting strategy.
+Possible inputs for cv are:</p>
+<blockquote>
+<div><ul class="simple">
+<li>None, to use the default 3-fold cross validation,</li>
+<li>integer, to specify the number of folds in a <cite>(Stratified)KFold</cite>,</li>
+<li>An object to be used as a cross-validation generator.</li>
+<li>An iterable yielding train, test splits.</li>
+</ul>
+</div></blockquote>
+<p>For integer/None inputs, if the estimator is a classifier and <code class="docutils literal notranslate"><span class="pre">y</span></code> is
+either binary or multiclass, <code class="xref py py-class docutils literal notranslate"><span class="pre">sklearn.model_selection.StratifiedKFold</span></code>
+is used. In all other cases, <code class="xref py py-class docutils literal notranslate"><span class="pre">sklearn.model_selection.KFold</span></code> is used.</p>
+<p class="last">Refer <a class="reference external" href="http://scikit-learn.org/stable/modules/cross_validation.html">User Guide</a>
+for the various cross-validation strategies that can be used here.</p>
+</dd>
+<dt><strong>refit</strong> <span class="classifier-delimiter">:</span> <span class="classifier">boolean, or string default=True</span></dt>
+<dd><p class="first">Refit an estimator using the best found parameters on the whole
+dataset.</p>
+<p>For multiple metric evaluation, this needs to be a string denoting the
+scorer that would be used to find the best parameters for refitting
+the estimator at the end.</p>
+<p>The refitted estimator is made available at the <code class="docutils literal notranslate"><span class="pre">best_estimator_</span></code>
+attribute and permits using <code class="docutils literal notranslate"><span class="pre">predict</span></code> directly on this
+<code class="docutils literal notranslate"><span class="pre">HyperbandSearchCV</span></code> instance.</p>
+<p>Also for multiple metric evaluation, the attributes <code class="docutils literal notranslate"><span class="pre">best_index_</span></code>,
+<code class="docutils literal notranslate"><span class="pre">best_score_</span></code> and <code class="docutils literal notranslate"><span class="pre">best_parameters_</span></code> will only be available if
+<code class="docutils literal notranslate"><span class="pre">refit</span></code> is set and all of them will be determined w.r.t this specific
+scorer.</p>
+<p class="last">See <code class="docutils literal notranslate"><span class="pre">scoring</span></code> parameter to know more about multiple metric
+evaluation.</p>
+</dd>
+<dt><strong>verbose</strong> <span class="classifier-delimiter">:</span> <span class="classifier">integer</span></dt>
+<dd><p class="first last">Controls the verbosity: the higher, the more messages.</p>
+</dd>
+<dt><strong>random_state</strong> <span class="classifier-delimiter">:</span> <span class="classifier">int, RandomState instance or None, optional, default=None</span></dt>
+<dd><p class="first last">Pseudo random number generator state used for random uniform sampling
+from lists of possible values instead of scipy.stats distributions.
+If int, random_state is the seed used by the random number generator;
+If RandomState instance, random_state is the random number generator;
+If None, the random number generator is the RandomState instance used
+by <cite>np.random</cite>.</p>
+</dd>
+<dt><strong>error_score</strong> <span class="classifier-delimiter">:</span> <span class="classifier">‘raise’ (default) or numeric</span></dt>
+<dd><p class="first last">Value to assign to the score if an error occurs in estimator fitting.
+If set to ‘raise’, the error is raised. If a numeric value is given,
+FitFailedWarning is raised. This parameter does not affect the refit
+step, which will always raise the error.</p>
+</dd>
+<dt><strong>return_train_score</strong> <span class="classifier-delimiter">:</span> <span class="classifier">boolean, optional, default=False</span></dt>
+<dd><p class="first last">If <code class="docutils literal notranslate"><span class="pre">False</span></code>, the <code class="docutils literal notranslate"><span class="pre">cv_results_</span></code> attribute will not include training
+scores.</p>
+</dd>
+</dl>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition seealso">
+<p class="first admonition-title">See also</p>
+<dl class="last docutils">
+<dt><code class="xref py py-class docutils literal notranslate"><span class="pre">sklearn.model_selection.GridSearchCV</span></code></dt>
+<dd>Does exhaustive search over a grid of parameters.</dd>
+<dt><code class="xref py py-class docutils literal notranslate"><span class="pre">sklearn.model_selection.ParameterSampler</span></code></dt>
+<dd>A generator over parameter settings, constructed from param_distributions.</dd>
+</dl>
+</div>
+<p class="rubric">Notes</p>
+<p>The parameters selected are those that maximize the score of the held-out
+data, according to the scoring parameter.</p>
+<p>If <cite>n_jobs</cite> was set to a value higher than one, the data is copied for each
+parameter setting (and not <cite>n_jobs</cite> times). This is done for efficiency
+reasons if individual jobs take very little time, but may raise errors if
+the dataset is large and not enough memory is available.  A workaround in
+this case is to set <cite>pre_dispatch</cite>. Then, the memory is copied only
+<cite>pre_dispatch</cite> many times. A reasonable value for <cite>pre_dispatch</cite> is <cite>2 *
+n_jobs</cite>.</p>
+<p class="rubric">References</p>
+<table class="docutils citation" frame="void" id="r8bc819a27e7e-1" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label">[1]</td><td><em>(<a class="fn-backref" href="#id1">1</a>, <a class="fn-backref" href="#id3">2</a>)</em> Li, L., Jamieson, K., DeSalvo, G., Rostamizadeh, A. and Talwalkar, A.,
+2017. Hyperband: A novel bandit-based approach to hyperparameter
+optimization. The Journal of Machine Learning Research, 18(1),
+pp.6765-6816.</td></tr>
+</tbody>
+</table>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Attributes:</th><td class="field-body"><dl class="first last docutils">
+<dt><strong>cv_results_</strong> <span class="classifier-delimiter">:</span> <span class="classifier">dict of numpy (masked) ndarrays</span></dt>
+<dd><p class="first">A dict with keys as column headers and values as columns, that can be
+imported into a pandas <code class="docutils literal notranslate"><span class="pre">DataFrame</span></code>.</p>
+<p>For instance the below given table</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="19%" />
+<col width="17%" />
+<col width="19%" />
+<col width="27%" />
+<col width="5%" />
+<col width="14%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">param_kernel</th>
+<th class="head">param_gamma</th>
+<th class="head">param_degree</th>
+<th class="head">split0_test_score</th>
+<th class="head">…</th>
+<th class="head">rank_t…</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>‘poly’</td>
+<td>–</td>
+<td>2</td>
+<td>0.8</td>
+<td>…</td>
+<td>2</td>
+</tr>
+<tr class="row-odd"><td>‘poly’</td>
+<td>–</td>
+<td>3</td>
+<td>0.7</td>
+<td>…</td>
+<td>4</td>
+</tr>
+<tr class="row-even"><td>‘rbf’</td>
+<td>0.1</td>
+<td>–</td>
+<td>0.8</td>
+<td>…</td>
+<td>3</td>
+</tr>
+<tr class="row-odd"><td>‘rbf’</td>
+<td>0.2</td>
+<td>–</td>
+<td>0.9</td>
+<td>…</td>
+<td>1</td>
+</tr>
+</tbody>
+</table>
+<p>will be represented by a <code class="docutils literal notranslate"><span class="pre">cv_results_</span></code> dict of:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="s1">&#39;param_kernel&#39;</span><span class="p">:</span> <span class="n">masked_array</span><span class="p">(</span><span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;poly&#39;</span><span class="p">,</span> <span class="s1">&#39;poly&#39;</span><span class="p">,</span> <span class="s1">&#39;rbf&#39;</span><span class="p">,</span> <span class="s1">&#39;rbf&#39;</span><span class="p">],</span>
+                             <span class="n">mask</span> <span class="o">=</span> <span class="p">[</span><span class="kc">False</span> <span class="kc">False</span> <span class="kc">False</span> <span class="kc">False</span><span class="p">]</span><span class="o">...</span><span class="p">)</span>
+<span class="s1">&#39;param_gamma&#39;</span><span class="p">:</span> <span class="n">masked_array</span><span class="p">(</span><span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="o">--</span> <span class="o">--</span> <span class="mf">0.1</span> <span class="mf">0.2</span><span class="p">],</span>
+                            <span class="n">mask</span> <span class="o">=</span> <span class="p">[</span> <span class="kc">True</span>  <span class="kc">True</span> <span class="kc">False</span> <span class="kc">False</span><span class="p">]</span><span class="o">...</span><span class="p">),</span>
+<span class="s1">&#39;param_degree&#39;</span><span class="p">:</span> <span class="n">masked_array</span><span class="p">(</span><span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="mf">2.0</span> <span class="mf">3.0</span> <span class="o">--</span> <span class="o">--</span><span class="p">],</span>
+                             <span class="n">mask</span> <span class="o">=</span> <span class="p">[</span><span class="kc">False</span> <span class="kc">False</span>  <span class="kc">True</span>  <span class="kc">True</span><span class="p">]</span><span class="o">...</span><span class="p">),</span>
+<span class="s1">&#39;split0_test_score&#39;</span>  <span class="p">:</span> <span class="p">[</span><span class="mf">0.8</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">],</span>
+<span class="s1">&#39;split1_test_score&#39;</span>  <span class="p">:</span> <span class="p">[</span><span class="mf">0.82</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">,</span> <span class="mf">0.78</span><span class="p">],</span>
+<span class="s1">&#39;mean_test_score&#39;</span>    <span class="p">:</span> <span class="p">[</span><span class="mf">0.81</span><span class="p">,</span> <span class="mf">0.60</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">,</span> <span class="mf">0.82</span><span class="p">],</span>
+<span class="s1">&#39;std_test_score&#39;</span>     <span class="p">:</span> <span class="p">[</span><span class="mf">0.02</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">],</span>
+<span class="s1">&#39;rank_test_score&#39;</span>    <span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+<span class="s1">&#39;split0_train_score&#39;</span> <span class="p">:</span> <span class="p">[</span><span class="mf">0.8</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">],</span>
+<span class="s1">&#39;split1_train_score&#39;</span> <span class="p">:</span> <span class="p">[</span><span class="mf">0.82</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">],</span>
+<span class="s1">&#39;mean_train_score&#39;</span>   <span class="p">:</span> <span class="p">[</span><span class="mf">0.81</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">],</span>
+<span class="s1">&#39;std_train_score&#39;</span>    <span class="p">:</span> <span class="p">[</span><span class="mf">0.03</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">,</span> <span class="mf">0.04</span><span class="p">],</span>
+<span class="s1">&#39;mean_fit_time&#39;</span>      <span class="p">:</span> <span class="p">[</span><span class="mf">0.73</span><span class="p">,</span> <span class="mf">0.63</span><span class="p">,</span> <span class="mf">0.43</span><span class="p">,</span> <span class="mf">0.49</span><span class="p">],</span>
+<span class="s1">&#39;std_fit_time&#39;</span>       <span class="p">:</span> <span class="p">[</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.02</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">],</span>
+<span class="s1">&#39;mean_score_time&#39;</span>    <span class="p">:</span> <span class="p">[</span><span class="mf">0.007</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">,</span> <span class="mf">0.04</span><span class="p">,</span> <span class="mf">0.04</span><span class="p">],</span>
+<span class="s1">&#39;std_score_time&#39;</span>     <span class="p">:</span> <span class="p">[</span><span class="mf">0.001</span><span class="p">,</span> <span class="mf">0.002</span><span class="p">,</span> <span class="mf">0.003</span><span class="p">,</span> <span class="mf">0.005</span><span class="p">],</span>
+<span class="s1">&#39;params&#39;</span>             <span class="p">:</span> <span class="p">[{</span><span class="s1">&#39;kernel&#39;</span><span class="p">:</span> <span class="s1">&#39;poly&#39;</span><span class="p">,</span> <span class="s1">&#39;degree&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">},</span> <span class="o">...</span><span class="p">],</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>NOTE</p>
+<p>The key <code class="docutils literal notranslate"><span class="pre">'params'</span></code> is used to store a list of parameter
+settings dicts for all the parameter candidates.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">mean_fit_time</span></code>, <code class="docutils literal notranslate"><span class="pre">std_fit_time</span></code>, <code class="docutils literal notranslate"><span class="pre">mean_score_time</span></code> and
+<code class="docutils literal notranslate"><span class="pre">std_score_time</span></code> are all in seconds.</p>
+<p class="last">For multi-metric evaluation, the scores for all the scorers are
+available in the <code class="docutils literal notranslate"><span class="pre">cv_results_</span></code> dict at the keys ending with that
+scorer’s name (<code class="docutils literal notranslate"><span class="pre">'_&lt;scorer_name&gt;'</span></code>) instead of <code class="docutils literal notranslate"><span class="pre">'_score'</span></code> shown
+above. (‘split0_test_precision’, ‘mean_train_precision’ etc.)</p>
+</dd>
+<dt><strong>best_estimator_</strong> <span class="classifier-delimiter">:</span> <span class="classifier">estimator or dict</span></dt>
+<dd><p class="first">Estimator that was chosen by the search, i.e. estimator
+which gave highest score (or smallest loss if specified)
+on the left out data. Not available if <code class="docutils literal notranslate"><span class="pre">refit=False</span></code>.</p>
+<p>For multi-metric evaluation, this attribute is present only if
+<code class="docutils literal notranslate"><span class="pre">refit</span></code> is specified.</p>
+<p class="last">See <code class="docutils literal notranslate"><span class="pre">refit</span></code> parameter for more information on allowed values.</p>
+</dd>
+<dt><strong>best_score_</strong> <span class="classifier-delimiter">:</span> <span class="classifier">float</span></dt>
+<dd><p class="first">Mean cross-validated score of the best_estimator.</p>
+<p class="last">For multi-metric evaluation, this is not available if <code class="docutils literal notranslate"><span class="pre">refit</span></code> is
+<code class="docutils literal notranslate"><span class="pre">False</span></code>. See <code class="docutils literal notranslate"><span class="pre">refit</span></code> parameter for more information.</p>
+</dd>
+<dt><strong>best_params_</strong> <span class="classifier-delimiter">:</span> <span class="classifier">dict</span></dt>
+<dd><p class="first">Parameter setting that gave the best results on the hold out data.</p>
+<p class="last">For multi-metric evaluation, this is not available if <code class="docutils literal notranslate"><span class="pre">refit</span></code> is
+<code class="docutils literal notranslate"><span class="pre">False</span></code>. See <code class="docutils literal notranslate"><span class="pre">refit</span></code> parameter for more information.</p>
+</dd>
+<dt><strong>best_index_</strong> <span class="classifier-delimiter">:</span> <span class="classifier">int</span></dt>
+<dd><p class="first">The index (of the <code class="docutils literal notranslate"><span class="pre">cv_results_</span></code> arrays) which corresponds to the best
+candidate parameter setting.</p>
+<p>The dict at <code class="docutils literal notranslate"><span class="pre">search.cv_results_['params'][search.best_index_]</span></code> gives
+the parameter setting for the best model, that gives the highest
+mean score (<code class="docutils literal notranslate"><span class="pre">search.best_score_</span></code>).</p>
+<p class="last">For multi-metric evaluation, this is not available if <code class="docutils literal notranslate"><span class="pre">refit</span></code> is
+<code class="docutils literal notranslate"><span class="pre">False</span></code>. See <code class="docutils literal notranslate"><span class="pre">refit</span></code> parameter for more information.</p>
+</dd>
+<dt><strong>scorer_</strong> <span class="classifier-delimiter">:</span> <span class="classifier">function or a dict</span></dt>
+<dd><p class="first">Scorer function used on the held out data to choose the best
+parameters for the model.</p>
+<p class="last">For multi-metric evaluation, this attribute holds the validated
+<code class="docutils literal notranslate"><span class="pre">scoring</span></code> dict which maps the scorer key to the scorer callable.</p>
+</dd>
+<dt><strong>n_splits_</strong> <span class="classifier-delimiter">:</span> <span class="classifier">int</span></dt>
+<dd><p class="first last">The number of cross-validation splits (folds/iterations).</p>
+</dd>
+</dl>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="hyperband.HyperbandSearchCV.decision_function">
+<code class="descname">decision_function</code><span class="sig-paren">(</span><em>X</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.decision_function" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call decision_function on the estimator with the best found parameters.</p>
+<p>Only available if <code class="docutils literal notranslate"><span class="pre">refit=True</span></code> and the underlying estimator supports
+<code class="docutils literal notranslate"><span class="pre">decision_function</span></code>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><dl class="first last docutils">
+<dt><strong>X</strong> <span class="classifier-delimiter">:</span> <span class="classifier">indexable, length n_samples</span></dt>
+<dd><p class="first last">Must fulfill the input assumptions of the
+underlying estimator.</p>
+</dd>
+</dl>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="hyperband.HyperbandSearchCV.fit">
+<code class="descname">fit</code><span class="sig-paren">(</span><em>X</em>, <em>y=None</em>, <em>groups=None</em>, <em>**fit_params</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/hyperband/search.html#HyperbandSearchCV.fit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#hyperband.HyperbandSearchCV.fit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run fit with all sets of parameters.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><dl class="first last docutils">
+<dt><strong>X</strong> <span class="classifier-delimiter">:</span> <span class="classifier">array-like, shape = [n_samples, n_features]</span></dt>
+<dd><p class="first last">Training vector, where n_samples is the number of samples and
+n_features is the number of features.</p>
+</dd>
+<dt><strong>y</strong> <span class="classifier-delimiter">:</span> <span class="classifier">array-like, shape = [n_samples] or [n_samples, n_output], optional</span></dt>
+<dd><p class="first last">Target relative to X for classification or regression;
+None for unsupervised learning.</p>
+</dd>
+<dt><strong>groups</strong> <span class="classifier-delimiter">:</span> <span class="classifier">array-like, with shape (n_samples,), optional</span></dt>
+<dd><p class="first last">Group labels for the samples used while splitting the dataset into
+train/test set.</p>
+</dd>
+<dt><strong>**fit_params</strong> <span class="classifier-delimiter">:</span> <span class="classifier">dict of string -&gt; object</span></dt>
+<dd><p class="first last">Parameters passed to the <code class="docutils literal notranslate"><span class="pre">fit</span></code> method of the estimator</p>
+</dd>
+</dl>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="hyperband.HyperbandSearchCV.get_params">
+<code class="descname">get_params</code><span class="sig-paren">(</span><em>deep=True</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.get_params" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get parameters for this estimator.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><dl class="first docutils">
+<dt><strong>deep</strong> <span class="classifier-delimiter">:</span> <span class="classifier">boolean, optional</span></dt>
+<dd><p class="first last">If True, will return the parameters for this estimator and
+contained subobjects that are estimators.</p>
+</dd>
+</dl>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><dl class="first last docutils">
+<dt><strong>params</strong> <span class="classifier-delimiter">:</span> <span class="classifier">mapping of string to any</span></dt>
+<dd><p class="first last">Parameter names mapped to their values.</p>
+</dd>
+</dl>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="hyperband.HyperbandSearchCV.inverse_transform">
+<code class="descname">inverse_transform</code><span class="sig-paren">(</span><em>Xt</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.inverse_transform" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call inverse_transform on the estimator with the best found params.</p>
+<p>Only available if the underlying estimator implements
+<code class="docutils literal notranslate"><span class="pre">inverse_transform</span></code> and <code class="docutils literal notranslate"><span class="pre">refit=True</span></code>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><dl class="first last docutils">
+<dt><strong>Xt</strong> <span class="classifier-delimiter">:</span> <span class="classifier">indexable, length n_samples</span></dt>
+<dd><p class="first last">Must fulfill the input assumptions of the
+underlying estimator.</p>
+</dd>
+</dl>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="hyperband.HyperbandSearchCV.predict">
+<code class="descname">predict</code><span class="sig-paren">(</span><em>X</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.predict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call predict on the estimator with the best found parameters.</p>
+<p>Only available if <code class="docutils literal notranslate"><span class="pre">refit=True</span></code> and the underlying estimator supports
+<code class="docutils literal notranslate"><span class="pre">predict</span></code>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><dl class="first last docutils">
+<dt><strong>X</strong> <span class="classifier-delimiter">:</span> <span class="classifier">indexable, length n_samples</span></dt>
+<dd><p class="first last">Must fulfill the input assumptions of the
+underlying estimator.</p>
+</dd>
+</dl>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="hyperband.HyperbandSearchCV.predict_log_proba">
+<code class="descname">predict_log_proba</code><span class="sig-paren">(</span><em>X</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.predict_log_proba" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call predict_log_proba on the estimator with the best found parameters.</p>
+<p>Only available if <code class="docutils literal notranslate"><span class="pre">refit=True</span></code> and the underlying estimator supports
+<code class="docutils literal notranslate"><span class="pre">predict_log_proba</span></code>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><dl class="first last docutils">
+<dt><strong>X</strong> <span class="classifier-delimiter">:</span> <span class="classifier">indexable, length n_samples</span></dt>
+<dd><p class="first last">Must fulfill the input assumptions of the
+underlying estimator.</p>
+</dd>
+</dl>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="hyperband.HyperbandSearchCV.predict_proba">
+<code class="descname">predict_proba</code><span class="sig-paren">(</span><em>X</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.predict_proba" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call predict_proba on the estimator with the best found parameters.</p>
+<p>Only available if <code class="docutils literal notranslate"><span class="pre">refit=True</span></code> and the underlying estimator supports
+<code class="docutils literal notranslate"><span class="pre">predict_proba</span></code>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><dl class="first last docutils">
+<dt><strong>X</strong> <span class="classifier-delimiter">:</span> <span class="classifier">indexable, length n_samples</span></dt>
+<dd><p class="first last">Must fulfill the input assumptions of the
+underlying estimator.</p>
+</dd>
+</dl>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="hyperband.HyperbandSearchCV.score">
+<code class="descname">score</code><span class="sig-paren">(</span><em>X</em>, <em>y=None</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.score" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the score on the given data, if the estimator has been refit.</p>
+<p>This uses the score defined by <code class="docutils literal notranslate"><span class="pre">scoring</span></code> where provided, and the
+<code class="docutils literal notranslate"><span class="pre">best_estimator_.score</span></code> method otherwise.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><dl class="first docutils">
+<dt><strong>X</strong> <span class="classifier-delimiter">:</span> <span class="classifier">array-like, shape = [n_samples, n_features]</span></dt>
+<dd><p class="first last">Input data, where n_samples is the number of samples and
+n_features is the number of features.</p>
+</dd>
+<dt><strong>y</strong> <span class="classifier-delimiter">:</span> <span class="classifier">array-like, shape = [n_samples] or [n_samples, n_output], optional</span></dt>
+<dd><p class="first last">Target relative to X for classification or regression;
+None for unsupervised learning.</p>
+</dd>
+</dl>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><dl class="first last docutils">
+<dt><strong>score</strong> <span class="classifier-delimiter">:</span> <span class="classifier">float</span></dt>
+<dd></dd>
+</dl>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="hyperband.HyperbandSearchCV.set_params">
+<code class="descname">set_params</code><span class="sig-paren">(</span><em>**params</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.set_params" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the parameters of this estimator.</p>
+<p>The method works on simple estimators as well as on nested objects
+(such as pipelines). The latter have parameters of the form
+<code class="docutils literal notranslate"><span class="pre">&lt;component&gt;__&lt;parameter&gt;</span></code> so that it’s possible to update each
+component of a nested object.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><dl class="first last docutils">
+<dt><strong>self</strong></dt>
+<dd></dd>
+</dl>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="hyperband.HyperbandSearchCV.transform">
+<code class="descname">transform</code><span class="sig-paren">(</span><em>X</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.transform" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call transform on the estimator with the best found parameters.</p>
+<p>Only available if the underlying estimator supports <code class="docutils literal notranslate"><span class="pre">transform</span></code> and
+<code class="docutils literal notranslate"><span class="pre">refit=True</span></code>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><dl class="first last docutils">
+<dt><strong>X</strong> <span class="classifier-delimiter">:</span> <span class="classifier">indexable, length n_samples</span></dt>
+<dd><p class="first last">Must fulfill the input assumptions of the
+underlying estimator.</p>
+</dd>
+</dl>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 
 
