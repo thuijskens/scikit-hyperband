@@ -72,18 +72,14 @@ def _store_results(results, n_splits, n_candidates, key_name,
 class HyperbandSearchCV(BaseSearchCV):
     """Hyperband search on hyper parameters.
 
-    HyperbandSearchCV implements a "fit" and a "score" method.
-    It also implements "predict", "predict_proba", "decision_function",
-    "transform" and "inverse_transform" if they are implemented in the
+    HyperbandSearchCV implements a ``fit`` and a ``score`` method.
+    It also implements ``predict``, ``predict_proba``, ``decision_function``,
+    ``transform`` and ``inverse_transform`` if they are implemented in the
     estimator used.
 
     The parameters of the estimator used to apply these methods are optimized
-    by cross-validated search over parameter settings.
-
-    In contrast to GridSearchCV, not all parameter values are tried out, but
-    rather a fixed number of parameter settings is sampled from the specified
-    distributions. The number of parameter settings that are tried is
-    given by n_iter.
+    by cross-validated search over parameter settings using the hyperband
+    algorithm [1]_ .
 
     If all parameters are presented as a list,
     sampling without replacement is performed. If at least one parameter
@@ -91,7 +87,8 @@ class HyperbandSearchCV(BaseSearchCV):
     It is highly recommended to use continuous distributions for continuous
     parameters.
 
-    Read more in the :ref:`User Guide <randomized_parameter_search>`.
+    Read more in the scikit-learn `User Guide
+    <http://scikit-learn.org/stable/modules/grid_search.html#randomized-parameter-search>`_.
 
     Parameters
     ----------
@@ -107,13 +104,13 @@ class HyperbandSearchCV(BaseSearchCV):
         method for sampling (such as those from scipy.stats.distributions).
         If a list is given, it is sampled uniformly.
 
-    resource_param : str
+    resource_param : str, default='n_estimators'
         The name of the cost parameter for the estimator ``estimator``
         to be fitted. Typically, this is the number of decision trees
         ``n_estimators`` in an ensemble or the number of iterations
         for estimators trained with stochastic gradient descent.
 
-    eta : float
+    eta : float, default=3
         The inverse of the proportion of configurations that are discarded
         in each round of hyperband.
 
@@ -182,11 +179,11 @@ class HyperbandSearchCV(BaseSearchCV):
           - An iterable yielding train, test splits.
 
         For integer/None inputs, if the estimator is a classifier and ``y`` is
-        either binary or multiclass, :class:`StratifiedKFold` is used. In all
-        other cases, :class:`KFold` is used.
+        either binary or multiclass, :class:`sklearn.model_selection.StratifiedKFold`
+        is used. In all other cases, :class:`sklearn.model_selection.KFold` is used.
 
-        Refer :ref:`User Guide <cross_validation>` for the various
-        cross-validation strategies that can be used here.
+        Refer `User Guide <http://scikit-learn.org/stable/modules/cross_validation.html>`_
+        for the various cross-validation strategies that can be used here.
 
     refit : boolean, or string default=True
         Refit an estimator using the best found parameters on the whole
@@ -198,7 +195,7 @@ class HyperbandSearchCV(BaseSearchCV):
 
         The refitted estimator is made available at the ``best_estimator_``
         attribute and permits using ``predict`` directly on this
-        ``RandomizedSearchCV`` instance.
+        ``HyperbandSearchCV`` instance.
 
         Also for multiple metric evaluation, the attributes ``best_index_``,
         ``best_score_`` and ``best_parameters_`` will only be available if
@@ -237,27 +234,32 @@ class HyperbandSearchCV(BaseSearchCV):
 
         For instance the below given table
 
-        +--------------+-------------+-------------------+---+---------------+
-        | param_kernel | param_gamma | split0_test_score |...|rank_test_score|
-        +==============+=============+===================+===+===============+
-        |    'rbf'     |     0.1     |        0.8        |...|       2       |
-        +--------------+-------------+-------------------+---+---------------+
-        |    'rbf'     |     0.2     |        0.9        |...|       1       |
-        +--------------+-------------+-------------------+---+---------------+
-        |    'rbf'     |     0.3     |        0.7        |...|       1       |
-        +--------------+-------------+-------------------+---+---------------+
+        +------------+-----------+------------+-----------------+---+---------+
+        |param_kernel|param_gamma|param_degree|split0_test_score|...|rank_t...|
+        +============+===========+============+=================+===+=========+
+        |  'poly'    |     --    |      2     |        0.8      |...|    2    |
+        +------------+-----------+------------+-----------------+---+---------+
+        |  'poly'    |     --    |      3     |        0.7      |...|    4    |
+        +------------+-----------+------------+-----------------+---+---------+
+        |  'rbf'     |     0.1   |     --     |        0.8      |...|    3    |
+        +------------+-----------+------------+-----------------+---+---------+
+        |  'rbf'     |     0.2   |     --     |        0.9      |...|    1    |
+        +------------+-----------+------------+-----------------+---+---------+
 
         will be represented by a ``cv_results_`` dict of::
 
             {
-            'param_kernel' : masked_array(data = ['rbf', 'rbf', 'rbf'],
-                                          mask = False),
-            'param_gamma'  : masked_array(data = [0.1 0.2 0.3], mask = False),
-            'split0_test_score'  : [0.8, 0.9, 0.7],
-            'split1_test_score'  : [0.82, 0.5, 0.7],
-            'mean_test_score'    : [0.81, 0.7, 0.7],
-            'std_test_score'     : [0.02, 0.2, 0.],
-            'rank_test_score'    : [3, 1, 1],
+            'param_kernel': masked_array(data = ['poly', 'poly', 'rbf', 'rbf'],
+                                         mask = [False False False False]...)
+            'param_gamma': masked_array(data = [-- -- 0.1 0.2],
+                                        mask = [ True  True False False]...),
+            'param_degree': masked_array(data = [2.0 3.0 -- --],
+                                         mask = [False False  True  True]...),
+            'split0_test_score'  : [0.8, 0.7, 0.8, 0.9],
+            'split1_test_score'  : [0.82, 0.5, 0.7, 0.78],
+            'mean_test_score'    : [0.81, 0.60, 0.75, 0.82],
+            'std_test_score'     : [0.02, 0.01, 0.03, 0.03],
+            'rank_test_score'    : [2, 4, 3, 1],
             'split0_train_score' : [0.8, 0.9, 0.7],
             'split1_train_score' : [0.82, 0.5, 0.7],
             'mean_train_score'   : [0.81, 0.7, 0.7],
@@ -266,7 +268,7 @@ class HyperbandSearchCV(BaseSearchCV):
             'std_fit_time'       : [0.01, 0.02, 0.01, 0.01],
             'mean_score_time'    : [0.007, 0.06, 0.04, 0.04],
             'std_score_time'     : [0.001, 0.002, 0.003, 0.005],
-            'params'             : [{'kernel' : 'rbf', 'gamma' : 0.1}, ...],
+            'params'             : [{'kernel': 'poly', 'degree': 2}, ...],
             }
 
         NOTE
@@ -348,10 +350,10 @@ class HyperbandSearchCV(BaseSearchCV):
 
     See Also
     --------
-    :class:`GridSearchCV`:
+    :class:`sklearn.model_selection.GridSearchCV`:
         Does exhaustive search over a grid of parameters.
 
-    :class:`ParameterSampler`:
+    :class:`sklearn.model_selection.ParameterSampler`:
         A generator over parameter settings, constructed from
         param_distributions.
 

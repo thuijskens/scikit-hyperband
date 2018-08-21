@@ -20,7 +20,7 @@ import sphinx_rtd_theme
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-#sys.path.insert(0, os.path.abspath('.'))
+sys.path.insert(0, os.path.abspath('..'))
 
 # -- General configuration ---------------------------------------------------
 
@@ -282,7 +282,7 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
   ('index', 'scikit-hyperband', u'scikit-hyperband Documentation',
-   u'Thomas Huijskens', 'scikit-hyperband', 'scikit-learn compatible implementation of stability selection.',
+   u'Thomas Huijskens', 'scikit-hyperband', 'scikit-learn compatible implementation of hyperband.',
    'Miscellaneous'),
 ]
 

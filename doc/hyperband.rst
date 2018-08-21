@@ -3,5 +3,6 @@ Hyperband
 
 The documentation of the scikit-hyperband module.
 
-.. automodule:: hyperband.hyperband
+.. automodule:: hyperband
    :members:
+   :inherited-members:
