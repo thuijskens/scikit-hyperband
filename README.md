@@ -1,5 +1,8 @@
 # Hyperband
 
+[![Build Status](https://travis-ci.org/thuijskens/scikit-hyperband.svg?branch=master)](https://travis-ci.org/thuijskens/scikit-hyperband)
+[![CircleCI](https://circleci.com/gh/thuijskens/scikit-hyperband/tree/master.svg?style=svg)](https://circleci.com/gh/thuijskens/scikit-hyperband/tree/master)
+
 A scikit-learn compatible implementation of hyperband. Work in progress.
 
 ## Installation
