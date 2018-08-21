@@ -33,6 +33,8 @@ Similarly to the existing model selection routines, `HyperbandSearchCV` works fo
 - `max_iter`: The maximum amount of resource that can be allocated to the cost parameter ``resource_param`` for a single configuration of the hyperparameters.
 - `skip_last`: The number of last rounds to skip. For example, this can be used to skip the last round of hyperband, which is standard randomized search. It can also be used to inspect intermediate results, although warm-starting HyperbandSearchCV is not supported.
 
+See the [documentation](https://thuijskens.github.io/scikit-hyperband/docs/) for the full parameter list.
+
 ```python
 from hyperband import HyperbandSearchCV
 
