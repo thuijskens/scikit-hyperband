@@ -32,7 +32,7 @@ jobs:
             if [[ "${CIRCLE_BRANCH}" =~ ^master$|^[0-9]+\.[0-9]+\.X$ ]]; then
               bash ./ci_scripts/circleci/push_doc.sh doc/_build/html
             fi
-
+  filters:
     branches:
       ignore:
          - gh-pages
