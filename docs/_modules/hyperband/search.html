@@ -1,0 +1,836 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>hyperband.search &mdash; scikit-hyperband 0.1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/gallery.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> scikit-hyperband
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../auto_examples/index.html">General examples</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">scikit-hyperband</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>hyperband.search</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for hyperband.search</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">=========</span>
+<span class="sd">Hyperband</span>
+<span class="sd">=========</span>
+
+<span class="sd">This module contains a scikit-learn compatible implementation of the hyperband</span>
+<span class="sd">algorithm[^1].</span>
+
+<span class="sd">Compared to the civismlext implementation, this supports multimetric scoring,</span>
+<span class="sd">and the option to turn the last round of hyperband (the randomized search</span>
+<span class="sd">round) off.</span>
+
+<span class="sd">References</span>
+<span class="sd">----------</span>
+
+<span class="sd">.. [1] Li, L., Jamieson, K., DeSalvo, G., Rostamizadeh, A. and Talwalkar, A.,</span>
+<span class="sd">   2017. Hyperband: A novel bandit-based approach to hyperparameter</span>
+<span class="sd">   optimization. The Journal of Machine Learning Research, 18(1),</span>
+<span class="sd">   pp.6765-6816.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="k">import</span> <span class="n">partial</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">scipy.stats</span> <span class="k">import</span> <span class="n">rankdata</span>
+
+<span class="kn">from</span> <span class="nn">sklearn.base</span> <span class="k">import</span> <span class="n">is_classifier</span><span class="p">,</span> <span class="n">clone</span>
+<span class="kn">from</span> <span class="nn">sklearn.externals</span> <span class="k">import</span> <span class="n">six</span>
+<span class="kn">from</span> <span class="nn">sklearn.externals.joblib</span> <span class="k">import</span> <span class="n">Parallel</span><span class="p">,</span> <span class="n">delayed</span>
+<span class="kn">from</span> <span class="nn">sklearn.metrics.scorer</span> <span class="k">import</span> <span class="n">_check_multimetric_scoring</span>
+<span class="kn">from</span> <span class="nn">sklearn.utils</span> <span class="k">import</span> <span class="n">check_random_state</span>
+<span class="kn">from</span> <span class="nn">sklearn.utils.validation</span> <span class="k">import</span> <span class="n">indexable</span>
+<span class="kn">from</span> <span class="nn">sklearn.utils.fixes</span> <span class="k">import</span> <span class="n">MaskedArray</span>
+
+<span class="kn">from</span> <span class="nn">sklearn.model_selection._search</span> <span class="k">import</span> <span class="n">BaseSearchCV</span><span class="p">,</span> <span class="n">ParameterSampler</span>
+<span class="kn">from</span> <span class="nn">sklearn.model_selection._split</span> <span class="k">import</span> <span class="n">check_cv</span>
+<span class="kn">from</span> <span class="nn">sklearn.model_selection._validation</span> <span class="k">import</span> <span class="n">_aggregate_score_dicts</span><span class="p">,</span> <span class="n">_fit_and_score</span>
+
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;HyperbandSearchCV&#39;</span><span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">_store_results</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">n_splits</span><span class="p">,</span> <span class="n">n_candidates</span><span class="p">,</span> <span class="n">key_name</span><span class="p">,</span>
+                   <span class="n">array</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">splits</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">rank</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A small helper to store the scores/times to the cv_results_</span>
+<span class="sd">    Taken from sklearn.model_selection._search.BaseSearchCV</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">array</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">n_candidates</span><span class="p">,</span>
+                                                      <span class="n">n_splits</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">splits</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">split_i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_splits</span><span class="p">):</span>
+            <span class="n">results</span><span class="p">[</span><span class="s2">&quot;split</span><span class="si">%d</span><span class="s2">_</span><span class="si">%s</span><span class="s2">&quot;</span>
+                    <span class="o">%</span> <span class="p">(</span><span class="n">split_i</span><span class="p">,</span> <span class="n">key_name</span><span class="p">)]</span> <span class="o">=</span> <span class="n">array</span><span class="p">[:,</span> <span class="n">split_i</span><span class="p">]</span>
+
+    <span class="n">array_means</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">array</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">)</span>
+    <span class="n">results</span><span class="p">[</span><span class="s1">&#39;mean_</span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">key_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">array_means</span>
+    <span class="c1"># Weighted std is not directly available in numpy</span>
+    <span class="n">array_stds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">((</span><span class="n">array</span> <span class="o">-</span>
+                                     <span class="n">array_means</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span>
+                                    <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">))</span>
+    <span class="n">results</span><span class="p">[</span><span class="s1">&#39;std_</span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">key_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">array_stds</span>
+
+    <span class="k">if</span> <span class="n">rank</span><span class="p">:</span>
+        <span class="n">results</span><span class="p">[</span><span class="s2">&quot;rank_</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">key_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span>
+            <span class="n">rankdata</span><span class="p">(</span><span class="o">-</span><span class="n">array_means</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;min&#39;</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">results</span>
+
+
+<div class="viewcode-block" id="HyperbandSearchCV"><a class="viewcode-back" href="../../hyperband.html#hyperband.HyperbandSearchCV">[docs]</a><span class="k">class</span> <span class="nc">HyperbandSearchCV</span><span class="p">(</span><span class="n">BaseSearchCV</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Hyperband search on hyper parameters.</span>
+
+<span class="sd">    HyperbandSearchCV implements a ``fit`` and a ``score`` method.</span>
+<span class="sd">    It also implements ``predict``, ``predict_proba``, ``decision_function``,</span>
+<span class="sd">    ``transform`` and ``inverse_transform`` if they are implemented in the</span>
+<span class="sd">    estimator used.</span>
+
+<span class="sd">    The parameters of the estimator used to apply these methods are optimized</span>
+<span class="sd">    by cross-validated search over parameter settings using the hyperband</span>
+<span class="sd">    algorithm [1]_ .</span>
+
+<span class="sd">    If all parameters are presented as a list,</span>
+<span class="sd">    sampling without replacement is performed. If at least one parameter</span>
+<span class="sd">    is given as a distribution, sampling with replacement is used.</span>
+<span class="sd">    It is highly recommended to use continuous distributions for continuous</span>
+<span class="sd">    parameters.</span>
+
+<span class="sd">    Read more in the scikit-learn `User Guide</span>
+<span class="sd">    &lt;http://scikit-learn.org/stable/modules/grid_search.html#randomized-parameter-search&gt;`_.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    estimator : estimator object.</span>
+<span class="sd">        A object of that type is instantiated for each grid point.</span>
+<span class="sd">        This is assumed to implement the scikit-learn estimator interface.</span>
+<span class="sd">        Either estimator needs to provide a ``score`` function,</span>
+<span class="sd">        or ``scoring`` must be passed.</span>
+
+<span class="sd">    param_distributions : dict</span>
+<span class="sd">        Dictionary with parameters names (string) as keys and distributions</span>
+<span class="sd">        or lists of parameters to try. Distributions must provide a ``rvs``</span>
+<span class="sd">        method for sampling (such as those from scipy.stats.distributions).</span>
+<span class="sd">        If a list is given, it is sampled uniformly.</span>
+
+<span class="sd">    resource_param : str, default=&#39;n_estimators&#39;</span>
+<span class="sd">        The name of the cost parameter for the estimator ``estimator``</span>
+<span class="sd">        to be fitted. Typically, this is the number of decision trees</span>
+<span class="sd">        ``n_estimators`` in an ensemble or the number of iterations</span>
+<span class="sd">        for estimators trained with stochastic gradient descent.</span>
+
+<span class="sd">    eta : float, default=3</span>
+<span class="sd">        The inverse of the proportion of configurations that are discarded</span>
+<span class="sd">        in each round of hyperband.</span>
+
+<span class="sd">    min_iter : int, default=1</span>
+<span class="sd">        The minimum amount of resource that should be allocated to the cost</span>
+<span class="sd">        parameter ``resource_param`` for a single configuration of the</span>
+<span class="sd">        hyperparameters.</span>
+
+<span class="sd">    max_iter : int, default=81</span>
+<span class="sd">        The maximum amount of resource that can be allocated to the cost</span>
+<span class="sd">        parameter ``resource_param`` for a single configuration of the</span>
+<span class="sd">        hyperparameters.</span>
+
+<span class="sd">    skip_last : int, default=0</span>
+<span class="sd">        The number of last rounds to skip. For example, this can be used</span>
+<span class="sd">        to skip the last round of hyperband, which is standard randomized</span>
+<span class="sd">        search. It can also be used to inspect intermediate results,</span>
+<span class="sd">        although warm-starting HyperbandSearchCV is not supported.</span>
+
+<span class="sd">    scoring : string, callable, list/tuple, dict or None, default: None</span>
+<span class="sd">        A single string (see :ref:`scoring_parameter`) or a callable</span>
+<span class="sd">        (see :ref:`scoring`) to evaluate the predictions on the test set.</span>
+
+<span class="sd">        For evaluating multiple metrics, either give a list of (unique) strings</span>
+<span class="sd">        or a dict with names as keys and callables as values.</span>
+
+<span class="sd">        NOTE that when using custom scorers, each scorer should return a single</span>
+<span class="sd">        value. Metric functions returning a list/array of values can be wrapped</span>
+<span class="sd">        into multiple scorers that return one value each.</span>
+
+<span class="sd">        See :ref:`multimetric_grid_search` for an example.</span>
+
+<span class="sd">        If None, the estimator&#39;s default scorer (if available) is used.</span>
+
+<span class="sd">    n_jobs : int, default=1</span>
+<span class="sd">        Number of jobs to run in parallel.</span>
+
+<span class="sd">    pre_dispatch : int, or string, optional</span>
+<span class="sd">        Controls the number of jobs that get dispatched during parallel</span>
+<span class="sd">        execution. Reducing this number can be useful to avoid an</span>
+<span class="sd">        explosion of memory consumption when more jobs get dispatched</span>
+<span class="sd">        than CPUs can process. This parameter can be:</span>
+
+<span class="sd">            - None, in which case all the jobs are immediately</span>
+<span class="sd">              created and spawned. Use this for lightweight and</span>
+<span class="sd">              fast-running jobs, to avoid delays due to on-demand</span>
+<span class="sd">              spawning of the jobs</span>
+
+<span class="sd">            - An int, giving the exact number of total jobs that are</span>
+<span class="sd">              spawned</span>
+
+<span class="sd">            - A string, giving an expression as a function of n_jobs,</span>
+<span class="sd">              as in &#39;2*n_jobs&#39;</span>
+
+<span class="sd">    iid : boolean, default=True</span>
+<span class="sd">        If True, the data is assumed to be identically distributed across</span>
+<span class="sd">        the folds, and the loss minimized is the total loss per sample,</span>
+<span class="sd">        and not the mean loss across the folds.</span>
+
+<span class="sd">    cv : int, cross-validation generator or an iterable, optional</span>
+<span class="sd">        Determines the cross-validation splitting strategy.</span>
+<span class="sd">        Possible inputs for cv are:</span>
+<span class="sd">          - None, to use the default 3-fold cross validation,</span>
+<span class="sd">          - integer, to specify the number of folds in a `(Stratified)KFold`,</span>
+<span class="sd">          - An object to be used as a cross-validation generator.</span>
+<span class="sd">          - An iterable yielding train, test splits.</span>
+
+<span class="sd">        For integer/None inputs, if the estimator is a classifier and ``y`` is</span>
+<span class="sd">        either binary or multiclass, :class:`sklearn.model_selection.StratifiedKFold`</span>
+<span class="sd">        is used. In all other cases, :class:`sklearn.model_selection.KFold` is used.</span>
+
+<span class="sd">        Refer `User Guide &lt;http://scikit-learn.org/stable/modules/cross_validation.html&gt;`_</span>
+<span class="sd">        for the various cross-validation strategies that can be used here.</span>
+
+<span class="sd">    refit : boolean, or string default=True</span>
+<span class="sd">        Refit an estimator using the best found parameters on the whole</span>
+<span class="sd">        dataset.</span>
+
+<span class="sd">        For multiple metric evaluation, this needs to be a string denoting the</span>
+<span class="sd">        scorer that would be used to find the best parameters for refitting</span>
+<span class="sd">        the estimator at the end.</span>
+
+<span class="sd">        The refitted estimator is made available at the ``best_estimator_``</span>
+<span class="sd">        attribute and permits using ``predict`` directly on this</span>
+<span class="sd">        ``HyperbandSearchCV`` instance.</span>
+
+<span class="sd">        Also for multiple metric evaluation, the attributes ``best_index_``,</span>
+<span class="sd">        ``best_score_`` and ``best_parameters_`` will only be available if</span>
+<span class="sd">        ``refit`` is set and all of them will be determined w.r.t this specific</span>
+<span class="sd">        scorer.</span>
+
+<span class="sd">        See ``scoring`` parameter to know more about multiple metric</span>
+<span class="sd">        evaluation.</span>
+
+<span class="sd">    verbose : integer</span>
+<span class="sd">        Controls the verbosity: the higher, the more messages.</span>
+
+<span class="sd">    random_state : int, RandomState instance or None, optional, default=None</span>
+<span class="sd">        Pseudo random number generator state used for random uniform sampling</span>
+<span class="sd">        from lists of possible values instead of scipy.stats distributions.</span>
+<span class="sd">        If int, random_state is the seed used by the random number generator;</span>
+<span class="sd">        If RandomState instance, random_state is the random number generator;</span>
+<span class="sd">        If None, the random number generator is the RandomState instance used</span>
+<span class="sd">        by `np.random`.</span>
+
+<span class="sd">    error_score : &#39;raise&#39; (default) or numeric</span>
+<span class="sd">        Value to assign to the score if an error occurs in estimator fitting.</span>
+<span class="sd">        If set to &#39;raise&#39;, the error is raised. If a numeric value is given,</span>
+<span class="sd">        FitFailedWarning is raised. This parameter does not affect the refit</span>
+<span class="sd">        step, which will always raise the error.</span>
+
+<span class="sd">    return_train_score : boolean, optional, default=False</span>
+<span class="sd">        If ``False``, the ``cv_results_`` attribute will not include training</span>
+<span class="sd">        scores.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    cv_results_ : dict of numpy (masked) ndarrays</span>
+<span class="sd">        A dict with keys as column headers and values as columns, that can be</span>
+<span class="sd">        imported into a pandas ``DataFrame``.</span>
+
+<span class="sd">        For instance the below given table</span>
+
+<span class="sd">        +------------+-----------+------------+-----------------+---+---------+</span>
+<span class="sd">        |param_kernel|param_gamma|param_degree|split0_test_score|...|rank_t...|</span>
+<span class="sd">        +============+===========+============+=================+===+=========+</span>
+<span class="sd">        |  &#39;poly&#39;    |     --    |      2     |        0.8      |...|    2    |</span>
+<span class="sd">        +------------+-----------+------------+-----------------+---+---------+</span>
+<span class="sd">        |  &#39;poly&#39;    |     --    |      3     |        0.7      |...|    4    |</span>
+<span class="sd">        +------------+-----------+------------+-----------------+---+---------+</span>
+<span class="sd">        |  &#39;rbf&#39;     |     0.1   |     --     |        0.8      |...|    3    |</span>
+<span class="sd">        +------------+-----------+------------+-----------------+---+---------+</span>
+<span class="sd">        |  &#39;rbf&#39;     |     0.2   |     --     |        0.9      |...|    1    |</span>
+<span class="sd">        +------------+-----------+------------+-----------------+---+---------+</span>
+
+<span class="sd">        will be represented by a ``cv_results_`` dict of::</span>
+
+<span class="sd">            {</span>
+<span class="sd">            &#39;param_kernel&#39;: masked_array(data = [&#39;poly&#39;, &#39;poly&#39;, &#39;rbf&#39;, &#39;rbf&#39;],</span>
+<span class="sd">                                         mask = [False False False False]...)</span>
+<span class="sd">            &#39;param_gamma&#39;: masked_array(data = [-- -- 0.1 0.2],</span>
+<span class="sd">                                        mask = [ True  True False False]...),</span>
+<span class="sd">            &#39;param_degree&#39;: masked_array(data = [2.0 3.0 -- --],</span>
+<span class="sd">                                         mask = [False False  True  True]...),</span>
+<span class="sd">            &#39;split0_test_score&#39;  : [0.8, 0.7, 0.8, 0.9],</span>
+<span class="sd">            &#39;split1_test_score&#39;  : [0.82, 0.5, 0.7, 0.78],</span>
+<span class="sd">            &#39;mean_test_score&#39;    : [0.81, 0.60, 0.75, 0.82],</span>
+<span class="sd">            &#39;std_test_score&#39;     : [0.02, 0.01, 0.03, 0.03],</span>
+<span class="sd">            &#39;rank_test_score&#39;    : [2, 4, 3, 1],</span>
+<span class="sd">            &#39;split0_train_score&#39; : [0.8, 0.9, 0.7],</span>
+<span class="sd">            &#39;split1_train_score&#39; : [0.82, 0.5, 0.7],</span>
+<span class="sd">            &#39;mean_train_score&#39;   : [0.81, 0.7, 0.7],</span>
+<span class="sd">            &#39;std_train_score&#39;    : [0.03, 0.03, 0.04],</span>
+<span class="sd">            &#39;mean_fit_time&#39;      : [0.73, 0.63, 0.43, 0.49],</span>
+<span class="sd">            &#39;std_fit_time&#39;       : [0.01, 0.02, 0.01, 0.01],</span>
+<span class="sd">            &#39;mean_score_time&#39;    : [0.007, 0.06, 0.04, 0.04],</span>
+<span class="sd">            &#39;std_score_time&#39;     : [0.001, 0.002, 0.003, 0.005],</span>
+<span class="sd">            &#39;params&#39;             : [{&#39;kernel&#39;: &#39;poly&#39;, &#39;degree&#39;: 2}, ...],</span>
+<span class="sd">            }</span>
+
+<span class="sd">        NOTE</span>
+
+<span class="sd">        The key ``&#39;params&#39;`` is used to store a list of parameter</span>
+<span class="sd">        settings dicts for all the parameter candidates.</span>
+
+<span class="sd">        The ``mean_fit_time``, ``std_fit_time``, ``mean_score_time`` and</span>
+<span class="sd">        ``std_score_time`` are all in seconds.</span>
+
+<span class="sd">        For multi-metric evaluation, the scores for all the scorers are</span>
+<span class="sd">        available in the ``cv_results_`` dict at the keys ending with that</span>
+<span class="sd">        scorer&#39;s name (``&#39;_&lt;scorer_name&gt;&#39;``) instead of ``&#39;_score&#39;`` shown</span>
+<span class="sd">        above. (&#39;split0_test_precision&#39;, &#39;mean_train_precision&#39; etc.)</span>
+
+<span class="sd">    best_estimator_ : estimator or dict</span>
+<span class="sd">        Estimator that was chosen by the search, i.e. estimator</span>
+<span class="sd">        which gave highest score (or smallest loss if specified)</span>
+<span class="sd">        on the left out data. Not available if ``refit=False``.</span>
+
+<span class="sd">        For multi-metric evaluation, this attribute is present only if</span>
+<span class="sd">        ``refit`` is specified.</span>
+
+<span class="sd">        See ``refit`` parameter for more information on allowed values.</span>
+
+<span class="sd">    best_score_ : float</span>
+<span class="sd">        Mean cross-validated score of the best_estimator.</span>
+
+<span class="sd">        For multi-metric evaluation, this is not available if ``refit`` is</span>
+<span class="sd">        ``False``. See ``refit`` parameter for more information.</span>
+
+<span class="sd">    best_params_ : dict</span>
+<span class="sd">        Parameter setting that gave the best results on the hold out data.</span>
+
+<span class="sd">        For multi-metric evaluation, this is not available if ``refit`` is</span>
+<span class="sd">        ``False``. See ``refit`` parameter for more information.</span>
+
+<span class="sd">    best_index_ : int</span>
+<span class="sd">        The index (of the ``cv_results_`` arrays) which corresponds to the best</span>
+<span class="sd">        candidate parameter setting.</span>
+
+<span class="sd">        The dict at ``search.cv_results_[&#39;params&#39;][search.best_index_]`` gives</span>
+<span class="sd">        the parameter setting for the best model, that gives the highest</span>
+<span class="sd">        mean score (``search.best_score_``).</span>
+
+<span class="sd">        For multi-metric evaluation, this is not available if ``refit`` is</span>
+<span class="sd">        ``False``. See ``refit`` parameter for more information.</span>
+
+<span class="sd">    scorer_ : function or a dict</span>
+<span class="sd">        Scorer function used on the held out data to choose the best</span>
+<span class="sd">        parameters for the model.</span>
+
+<span class="sd">        For multi-metric evaluation, this attribute holds the validated</span>
+<span class="sd">        ``scoring`` dict which maps the scorer key to the scorer callable.</span>
+
+<span class="sd">    n_splits_ : int</span>
+<span class="sd">        The number of cross-validation splits (folds/iterations).</span>
+
+<span class="sd">    References</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    .. [1] Li, L., Jamieson, K., DeSalvo, G., Rostamizadeh, A. and Talwalkar, A.,</span>
+<span class="sd">           2017. Hyperband: A novel bandit-based approach to hyperparameter</span>
+<span class="sd">           optimization. The Journal of Machine Learning Research, 18(1),</span>
+<span class="sd">           pp.6765-6816.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    The parameters selected are those that maximize the score of the held-out</span>
+<span class="sd">    data, according to the scoring parameter.</span>
+
+<span class="sd">    If `n_jobs` was set to a value higher than one, the data is copied for each</span>
+<span class="sd">    parameter setting (and not `n_jobs` times). This is done for efficiency</span>
+<span class="sd">    reasons if individual jobs take very little time, but may raise errors if</span>
+<span class="sd">    the dataset is large and not enough memory is available.  A workaround in</span>
+<span class="sd">    this case is to set `pre_dispatch`. Then, the memory is copied only</span>
+<span class="sd">    `pre_dispatch` many times. A reasonable value for `pre_dispatch` is `2 *</span>
+<span class="sd">    n_jobs`.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    :class:`sklearn.model_selection.GridSearchCV`:</span>
+<span class="sd">        Does exhaustive search over a grid of parameters.</span>
+
+<span class="sd">    :class:`sklearn.model_selection.ParameterSampler`:</span>
+<span class="sd">        A generator over parameter settings, constructed from</span>
+<span class="sd">        param_distributions.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">estimator</span><span class="p">,</span> <span class="n">param_distributions</span><span class="p">,</span>
+                 <span class="n">resource_param</span><span class="o">=</span><span class="s1">&#39;n_estimators&#39;</span><span class="p">,</span> <span class="n">eta</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">min_iter</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                 <span class="n">max_iter</span><span class="o">=</span><span class="mi">81</span><span class="p">,</span> <span class="n">skip_last</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">scoring</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                 <span class="n">iid</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">refit</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">verbose</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">pre_dispatch</span><span class="o">=</span><span class="s1">&#39;2*n_jobs&#39;</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">error_score</span><span class="o">=</span><span class="s1">&#39;raise&#39;</span><span class="p">,</span> <span class="n">return_train_score</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">param_distributions</span> <span class="o">=</span> <span class="n">param_distributions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resource_param</span> <span class="o">=</span> <span class="n">resource_param</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eta</span> <span class="o">=</span> <span class="n">eta</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">min_iter</span> <span class="o">=</span> <span class="n">min_iter</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span> <span class="o">=</span> <span class="n">max_iter</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">skip_last</span> <span class="o">=</span> <span class="n">skip_last</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">random_state</span> <span class="o">=</span> <span class="n">random_state</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">HyperbandSearchCV</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">estimator</span><span class="o">=</span><span class="n">estimator</span><span class="p">,</span> <span class="n">scoring</span><span class="o">=</span><span class="n">scoring</span><span class="p">,</span> <span class="n">fit_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">n_jobs</span><span class="o">=</span><span class="n">n_jobs</span><span class="p">,</span> <span class="n">iid</span><span class="o">=</span><span class="n">iid</span><span class="p">,</span> <span class="n">refit</span><span class="o">=</span><span class="n">refit</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">cv</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+            <span class="n">pre_dispatch</span><span class="o">=</span><span class="n">pre_dispatch</span><span class="p">,</span> <span class="n">error_score</span><span class="o">=</span><span class="n">error_score</span><span class="p">,</span>
+            <span class="n">return_train_score</span><span class="o">=</span><span class="n">return_train_score</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_process_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">out</span><span class="p">,</span> <span class="n">n_splits</span><span class="p">,</span> <span class="n">scorers</span><span class="p">,</span> <span class="n">refit_metric</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;return results dict and best dict for given outputs</span>
+<span class="sd">        Taken from sklearn.model_selection._search.BaseSearchCV.fit&quot;&quot;&quot;</span>
+
+        <span class="c1"># if one choose to see train score, &quot;out&quot; will contain train score info</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">return_train_score</span><span class="p">:</span>
+            <span class="p">(</span><span class="n">train_score_dicts</span><span class="p">,</span> <span class="n">test_score_dicts</span><span class="p">,</span> <span class="n">test_sample_counts</span><span class="p">,</span>
+             <span class="n">fit_time</span><span class="p">,</span> <span class="n">score_time</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">bracket</span><span class="p">)</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">out</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="p">(</span><span class="n">test_score_dicts</span><span class="p">,</span> <span class="n">test_sample_counts</span><span class="p">,</span>
+             <span class="n">fit_time</span><span class="p">,</span> <span class="n">score_time</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">bracket</span><span class="p">)</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">out</span><span class="p">)</span>
+
+        <span class="n">candidate_params</span> <span class="o">=</span> <span class="n">parameters</span><span class="p">[::</span><span class="n">n_splits</span><span class="p">]</span>
+        <span class="n">n_candidates</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">candidate_params</span><span class="p">)</span>
+
+        <span class="c1"># test_score_dicts and train_score dicts are lists of dictionaries and</span>
+        <span class="c1"># we make them into dict of lists</span>
+        <span class="n">test_scores</span> <span class="o">=</span> <span class="n">_aggregate_score_dicts</span><span class="p">(</span><span class="n">test_score_dicts</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">return_train_score</span><span class="p">:</span>
+            <span class="n">train_scores</span> <span class="o">=</span> <span class="n">_aggregate_score_dicts</span><span class="p">(</span><span class="n">train_score_dicts</span><span class="p">)</span>
+
+        <span class="n">results</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+        <span class="c1"># Use one MaskedArray and mask all the places where the param is not</span>
+        <span class="c1"># applicable for that candidate. Use defaultdict as each candidate may</span>
+        <span class="c1"># not contain all the params</span>
+        <span class="n">param_results</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="n">partial</span><span class="p">(</span><span class="n">MaskedArray</span><span class="p">,</span>
+                                            <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_candidates</span><span class="p">,),</span>
+                                            <span class="n">mask</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                                            <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">cand_i</span><span class="p">,</span> <span class="n">params</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">candidate_params</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">params</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="c1"># An all masked empty array gets created for the key</span>
+                <span class="c1"># `&quot;param_%s&quot; % name` at the first occurence of `name`.</span>
+                <span class="c1"># Setting the value at an index also unmasks that index</span>
+                <span class="n">param_results</span><span class="p">[</span><span class="s2">&quot;param_</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">name</span><span class="p">][</span><span class="n">cand_i</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+        <span class="n">results</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">param_results</span><span class="p">)</span>
+
+        <span class="c1"># Store a list of param dicts at the key &#39;params&#39;</span>
+        <span class="n">results</span><span class="p">[</span><span class="s1">&#39;params&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">candidate_params</span>
+
+        <span class="c1"># Computed the (weighted) mean and std for test scores alone</span>
+        <span class="c1"># NOTE test_sample counts (weights) remain the same for all candidates</span>
+        <span class="n">test_sample_counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">test_sample_counts</span><span class="p">[:</span><span class="n">n_splits</span><span class="p">],</span>
+                                      <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">scorer_name</span> <span class="ow">in</span> <span class="n">scorers</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="c1"># Computed the (weighted) mean and std for test scores alone</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="n">_store_results</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">n_splits</span><span class="p">,</span> <span class="n">n_candidates</span><span class="p">,</span>
+                                     <span class="s1">&#39;test_</span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">scorer_name</span><span class="p">,</span> <span class="n">test_scores</span><span class="p">[</span><span class="n">scorer_name</span><span class="p">],</span>
+                                     <span class="n">splits</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">rank</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">test_sample_counts</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">iid</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">return_train_score</span><span class="p">:</span>
+                <span class="n">results</span> <span class="o">=</span> <span class="n">_store_results</span><span class="p">(</span>
+                    <span class="n">results</span><span class="p">,</span> <span class="n">n_splits</span><span class="p">,</span> <span class="n">n_candidates</span><span class="p">,</span>
+                    <span class="s1">&#39;train_</span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">scorer_name</span><span class="p">,</span> <span class="n">train_scores</span><span class="p">[</span><span class="n">scorer_name</span><span class="p">],</span> <span class="n">splits</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">results</span> <span class="o">=</span> <span class="n">_store_results</span><span class="p">(</span>
+            <span class="n">results</span><span class="p">,</span> <span class="n">n_splits</span><span class="p">,</span> <span class="n">n_candidates</span><span class="p">,</span> <span class="s1">&#39;fit_time&#39;</span><span class="p">,</span> <span class="n">fit_time</span><span class="p">)</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="n">_store_results</span><span class="p">(</span>
+            <span class="n">results</span><span class="p">,</span> <span class="n">n_splits</span><span class="p">,</span> <span class="n">n_candidates</span><span class="p">,</span> <span class="s1">&#39;score_time&#39;</span><span class="p">,</span> <span class="n">score_time</span><span class="p">)</span>
+        <span class="n">results</span><span class="p">[</span><span class="s1">&#39;hyperband_bracket&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">bracket</span><span class="p">[::</span><span class="n">n_splits</span><span class="p">])</span>
+
+        <span class="n">best_index</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;rank_test_</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">refit_metric</span><span class="p">]</span><span class="o">.</span><span class="n">argmin</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">results</span><span class="p">,</span> <span class="n">best_index</span>
+
+    <span class="k">def</span> <span class="nf">_validate_input</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">min_iter</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_iter</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;min_iter should be a positive integer, got </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span>
+                             <span class="bp">self</span><span class="o">.</span><span class="n">min_iter</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;max_iter should be a positive integer, got </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span>
+                             <span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_iter</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;max_iter should be bigger than min_iter, got&#39;</span>
+                             <span class="s1">&#39;max_iter=</span><span class="si">%d</span><span class="s1"> and min_iter=</span><span class="si">%d</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span><span class="p">,</span>
+                                                              <span class="bp">self</span><span class="o">.</span><span class="n">min_iter</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">skip_last</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">skip_last</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;skip_last should be an integer, got </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span>
+                             <span class="bp">self</span><span class="o">.</span><span class="n">skip_last</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eta</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">eta</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;eta should be a positive integer, got </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span>
+                             <span class="bp">self</span><span class="o">.</span><span class="n">eta</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource_param</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">get_params</span><span class="p">()</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;resource_param is set to </span><span class="si">%s</span><span class="s1">, but base_estimator </span><span class="si">%s</span><span class="s1"> &#39;</span>
+                             <span class="s1">&#39;does not have a parameter with that name&#39;</span> <span class="o">%</span>
+                             <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">resource_param</span><span class="p">,</span>
+                              <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">))</span>
+
+<div class="viewcode-block" id="HyperbandSearchCV.fit"><a class="viewcode-back" href="../../hyperband.html#hyperband.HyperbandSearchCV.fit">[docs]</a>    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">groups</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">fit_params</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Run fit with all sets of parameters.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        X : array-like, shape = [n_samples, n_features]</span>
+<span class="sd">            Training vector, where n_samples is the number of samples and</span>
+<span class="sd">            n_features is the number of features.</span>
+
+<span class="sd">        y : array-like, shape = [n_samples] or [n_samples, n_output], optional</span>
+<span class="sd">            Target relative to X for classification or regression;</span>
+<span class="sd">            None for unsupervised learning.</span>
+
+<span class="sd">        groups : array-like, with shape (n_samples,), optional</span>
+<span class="sd">            Group labels for the samples used while splitting the dataset into</span>
+<span class="sd">            train/test set.</span>
+
+<span class="sd">        **fit_params : dict of string -&gt; object</span>
+<span class="sd">            Parameters passed to the ``fit`` method of the estimator</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">estimator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span>
+        <span class="n">cv</span> <span class="o">=</span> <span class="n">check_cv</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cv</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">classifier</span><span class="o">=</span><span class="n">is_classifier</span><span class="p">(</span><span class="n">estimator</span><span class="p">))</span>
+
+        <span class="n">scorers</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">multimetric_</span> <span class="o">=</span> <span class="n">_check_multimetric_scoring</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span><span class="p">,</span> <span class="n">scoring</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scoring</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">multimetric_</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">refit</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">False</span> <span class="ow">and</span> <span class="p">(</span>
+                    <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">refit</span><span class="p">,</span> <span class="n">six</span><span class="o">.</span><span class="n">string_types</span><span class="p">)</span> <span class="ow">or</span>
+                    <span class="c1"># This will work for both dict / list (tuple)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">refit</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">scorers</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;For multi-metric scoring, the parameter &quot;</span>
+                                 <span class="s2">&quot;refit must be set to a scorer key &quot;</span>
+                                 <span class="s2">&quot;to refit an estimator with the best &quot;</span>
+                                 <span class="s2">&quot;parameter setting on the whole data and &quot;</span>
+                                 <span class="s2">&quot;make the best_* attributes &quot;</span>
+                                 <span class="s2">&quot;available for that metric. If this is not &quot;</span>
+                                 <span class="s2">&quot;needed, refit should be set to False &quot;</span>
+                                 <span class="s2">&quot;explicitly. </span><span class="si">%r</span><span class="s2"> was passed.&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">refit</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">refit_metric</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">refit</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">refit_metric</span> <span class="o">=</span> <span class="s1">&#39;score&#39;</span>
+
+        <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">groups</span> <span class="o">=</span> <span class="n">indexable</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">groups</span><span class="p">)</span>
+        <span class="n">n_splits</span> <span class="o">=</span> <span class="n">cv</span><span class="o">.</span><span class="n">get_n_splits</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">groups</span><span class="p">)</span>
+
+        <span class="n">base_estimator</span> <span class="o">=</span> <span class="n">clone</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">estimator</span><span class="p">)</span>
+        <span class="n">pre_dispatch</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pre_dispatch</span>
+        <span class="n">random_state</span> <span class="o">=</span> <span class="n">check_random_state</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">random_state</span><span class="p">)</span>
+
+        <span class="c1"># Here is where hyperband comes into play</span>
+        <span class="n">s_max</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_iter</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eta</span><span class="p">)))</span>
+        <span class="n">B</span> <span class="o">=</span> <span class="p">(</span><span class="n">s_max</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">skip_last</span> <span class="o">&gt;</span> <span class="n">s_max</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;skip_last is higher than the total number of rounds&#39;</span><span class="p">)</span>
+
+        <span class="n">all_results</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">round_index</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">reversed</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">s_max</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))):</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">B</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span> <span class="o">/</span> <span class="p">(</span><span class="n">s</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eta</span><span class="p">,</span> <span class="n">s</span><span class="p">)))</span>
+
+            <span class="c1"># initial number of iterations per config</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eta</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+            <span class="n">configurations</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">ParameterSampler</span><span class="p">(</span><span class="n">param_distributions</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">param_distributions</span><span class="p">,</span>
+                                                   <span class="n">n_iter</span><span class="o">=</span><span class="n">n</span><span class="p">,</span>
+                                                   <span class="n">random_state</span><span class="o">=</span><span class="n">random_state</span><span class="p">))</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Starting bracket </span><span class="si">{0}</span><span class="s1"> (out of </span><span class="si">{1}</span><span class="s1">) of hyperband&#39;</span>
+                      <span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">round_index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">s_max</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">((</span><span class="n">s</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">skip_last</span><span class="p">):</span>
+
+                <span class="n">n_configs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">n</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eta</span><span class="p">,</span> <span class="n">i</span><span class="p">))</span>  <span class="c1"># n_i</span>
+                <span class="n">n_iterations</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">r</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eta</span><span class="p">,</span> <span class="n">i</span><span class="p">))</span>  <span class="c1"># r_i</span>
+                <span class="n">n_to_keep</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">n_configs</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">eta</span><span class="p">))</span>
+
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;Starting successive halving iteration </span><span class="si">{0}</span><span class="s1"> out of&#39;</span>
+                           <span class="s1">&#39; </span><span class="si">{1}</span><span class="s1">. Fitting </span><span class="si">{2}</span><span class="s1"> configurations, with&#39;</span>
+                           <span class="s1">&#39; resource_param </span><span class="si">{3}</span><span class="s1"> set to </span><span class="si">{4}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+                    <span class="k">if</span> <span class="n">n_to_keep</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">msg</span> <span class="o">+=</span> <span class="s1">&#39;, and keeping the best </span><span class="si">{5}</span><span class="s1"> configurations.&#39;</span>
+
+                    <span class="n">msg</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">s</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">configurations</span><span class="p">),</span>
+                                     <span class="bp">self</span><span class="o">.</span><span class="n">resource_param</span><span class="p">,</span> <span class="n">n_iterations</span><span class="p">,</span>
+                                     <span class="n">n_to_keep</span><span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+                <span class="c1"># Create a queue with jobs for joblib</span>
+                <span class="n">jobs</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">configuration</span> <span class="ow">in</span> <span class="n">configurations</span><span class="p">:</span>
+                    <span class="n">parameters</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">configuration</span><span class="p">)</span>
+                    <span class="n">parameters</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">resource_param</span><span class="p">]</span> <span class="o">=</span> <span class="n">n_iterations</span>
+
+                    <span class="k">for</span> <span class="n">train</span><span class="p">,</span> <span class="n">test</span> <span class="ow">in</span> <span class="n">cv</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">groups</span><span class="p">):</span>
+                        <span class="n">jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">delayed</span><span class="p">(</span><span class="n">_fit_and_score</span><span class="p">)(</span>
+                            <span class="n">clone</span><span class="p">(</span><span class="n">base_estimator</span><span class="p">),</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">scorers</span><span class="p">,</span>
+                            <span class="n">train</span><span class="p">,</span> <span class="n">test</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span>
+                            <span class="n">fit_params</span><span class="o">=</span><span class="n">fit_params</span><span class="p">,</span>
+                            <span class="n">return_train_score</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">return_train_score</span><span class="p">,</span>
+                            <span class="n">return_n_test_samples</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                            <span class="n">return_times</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">return_parameters</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                            <span class="n">error_score</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">error_score</span>
+                        <span class="p">))</span>
+
+                <span class="n">out</span> <span class="o">=</span> <span class="n">Parallel</span><span class="p">(</span>
+                    <span class="n">n_jobs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_jobs</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">verbose</span><span class="p">,</span>
+                    <span class="n">pre_dispatch</span><span class="o">=</span><span class="n">pre_dispatch</span><span class="p">)(</span><span class="n">jobs</span><span class="p">)</span>
+                <span class="c1"># Add hyperband bracket to output</span>
+                <span class="n">out</span> <span class="o">=</span> <span class="p">[[</span><span class="o">*</span><span class="n">run</span><span class="p">,</span> <span class="n">s</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">run</span> <span class="ow">in</span> <span class="n">out</span><span class="p">]</span>
+                <span class="n">all_results</span> <span class="o">+=</span> <span class="n">out</span>
+
+                <span class="k">if</span> <span class="n">n_to_keep</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">results</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process_results</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">n_splits</span><span class="p">,</span> <span class="n">scorers</span><span class="p">,</span> <span class="n">refit_metric</span><span class="p">)</span>
+                    <span class="n">top_configurations</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;rank_test_</span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">refit_metric</span><span class="p">],</span>
+                                                                   <span class="n">results</span><span class="p">[</span><span class="s1">&#39;params&#39;</span><span class="p">]),</span>
+                                                               <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span>
+
+                    <span class="n">configurations</span> <span class="o">=</span> <span class="n">top_configurations</span><span class="p">[:</span><span class="n">n_to_keep</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">skip_last</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Skipping the last </span><span class="si">{0}</span><span class="s1"> successive halving iterations&#39;</span>
+                      <span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">skip_last</span><span class="p">))</span>
+
+        <span class="c1"># Collect all results. This is where hyperband ends and sklearn code</span>
+        <span class="c1"># takes over</span>
+        <span class="n">all_models</span><span class="p">,</span> <span class="n">best_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process_results</span><span class="p">(</span><span class="n">all_results</span><span class="p">,</span> <span class="n">n_splits</span><span class="p">,</span> <span class="n">scorers</span><span class="p">,</span> <span class="n">refit_metric</span><span class="p">)</span>
+
+        <span class="c1"># For multi-metric evaluation, store the best_index_, best_params_ and</span>
+        <span class="c1"># best_score_ if refit is one of the scorer names</span>
+        <span class="c1"># In single metric evaluation, refit_metric is &quot;score&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">refit</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">multimetric_</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">best_params_</span> <span class="o">=</span> <span class="n">all_models</span><span class="p">[</span><span class="s1">&#39;params&#39;</span><span class="p">][</span><span class="n">best_index</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">best_score_</span> <span class="o">=</span> <span class="n">all_models</span><span class="p">[</span><span class="s2">&quot;mean_test_</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">refit_metric</span><span class="p">][</span><span class="n">best_index</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">refit</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">best_estimator_</span> <span class="o">=</span> <span class="n">clone</span><span class="p">(</span><span class="n">base_estimator</span><span class="p">)</span><span class="o">.</span><span class="n">set_params</span><span class="p">(</span>
+                <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">best_params_</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">y</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">best_estimator_</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="o">**</span><span class="n">fit_params</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">best_estimator_</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="o">**</span><span class="n">fit_params</span><span class="p">)</span>
+
+        <span class="c1"># Store the only scorer not as a dict for single metric evaluation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scorer_</span> <span class="o">=</span> <span class="n">scorers</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">multimetric_</span> <span class="k">else</span> <span class="n">scorers</span><span class="p">[</span><span class="s1">&#39;score&#39;</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">cv_results_</span> <span class="o">=</span> <span class="n">all_models</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_splits_</span> <span class="o">=</span> <span class="n">n_splits</span>
+
+        <span class="k">return</span> <span class="bp">self</span></div></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, Thomas Huijskens.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'0.1.0',
+            LANGUAGE:'None',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
