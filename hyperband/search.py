@@ -118,7 +118,7 @@ class HyperbandSearchCV(BaseSearchCV):
         in each round of hyperband.
 
     min_iter : int, default=1
-        The minim amount of resource that should be allocated to the cost
+        The minimum amount of resource that should be allocated to the cost
         parameter ``resource_param`` for a single configuration of the
         hyperparameters.
 
