@@ -532,10 +532,7 @@ class HyperbandSearchCV(BaseSearchCV):
         all_results = []
 
         for round_index, s in enumerate(reversed(range(s_max + 1))):
-            # NOTE: The formula is taken directly from the paper, but the generated
-            # n_i and r_i values for the defaults do not correspond to those in
-            # Table 1 of the paper.
-            n = int(np.ceil(B / self.max_iter * np.power(self.eta, s) / (s + 1)))
+            n = int(np.ceil(int(B / self.max_iter / (s + 1)) * np.power(self.eta, s)))
 
             # initial number of iterations per config
             r = self.max_iter / np.power(self.eta, s)
