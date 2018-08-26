@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/thuijskens/scikit-hyperband.svg?branch=master)](https://travis-ci.org/thuijskens/scikit-hyperband)
 [![CircleCI](https://circleci.com/gh/thuijskens/scikit-hyperband/tree/master.svg?style=svg)](https://circleci.com/gh/thuijskens/scikit-hyperband/tree/master)
 
-A scikit-learn compatible implementation of hyperband. Work in progress.
+A scikit-learn compatible implementation of hyperband.
 
 ## Installation
 
@@ -41,6 +41,7 @@ from hyperband import HyperbandSearchCV
 from scipy.stats import randint as sp_randint
 from sklearn.datasets import load_digits
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import LabelBinarizer
 
 model = RandomForestClassifier()
 param_dist = {
@@ -54,6 +55,7 @@ param_dist = {
 
 digits = load_digits()
 X, y = digits.data, digits.target
+y = LabelBinarizer().fit_transform(y)
 
 search = HyperbandSearchCV(model, param_dist, 
                            resource_param='n_estimators',
@@ -61,4 +63,9 @@ search = HyperbandSearchCV(model, param_dist,
 search.fit(X, y)
 print(search.best_params_)
 ```
- 
+
+## References
+
+* Li, L., Jamieson, K., DeSalvo, G., Rostamizadeh, A. and Talwalkar, A., 2017. Hyperband: A novel bandit-based approach to hyperparameter optimization. The Journal of Machine Learning Research, 18(1), pp.6765-6816. http://www.jmlr.org/papers/volume18/16-558/16-558.pdf
+* Whilst developing scikit-hyperband, I stumbled on an implementation of hyperband in [civisml-extensions](https://github.com/civisanalytics/civisml-extensions). Their implementation exposes more parallelism than this one does, although this implementation has a couple of extra options you can tweak (`skip_last`, multi-metric scoring)
+* FastML has a nice blog post explaining hyperband [here](http://fastml.com/tuning-hyperparams-fast-with-hyperband/). 
