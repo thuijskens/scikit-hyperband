@@ -8,6 +8,26 @@ General examples
 Introductory examples.
 
 
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="Tuning the hyperparameters of a random forest model with hyperband">
+
+.. only:: html
+
+    .. figure:: /auto_examples/images/thumb/sphx_glr_random_forest_example_thumb.png
+
+        :ref:`sphx_glr_auto_examples_random_forest_example.py`
+
+.. raw:: html
+
+    </div>
+
+
+.. toctree::
+   :hidden:
+
+   /auto_examples/random_forest_example
 .. raw:: html
 
     <div style='clear:both'></div>
