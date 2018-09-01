@@ -527,6 +527,9 @@
             <span class="n">pre_dispatch</span><span class="o">=</span><span class="n">pre_dispatch</span><span class="p">,</span> <span class="n">error_score</span><span class="o">=</span><span class="n">error_score</span><span class="p">,</span>
             <span class="n">return_train_score</span><span class="o">=</span><span class="n">return_train_score</span><span class="p">)</span>
 
+    <span class="k">def</span> <span class="nf">_run_search</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">evaluate_candidates</span><span class="p">):</span>
+        <span class="k">pass</span>
+
     <span class="k">def</span> <span class="nf">_process_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">out</span><span class="p">,</span> <span class="n">n_splits</span><span class="p">,</span> <span class="n">scorers</span><span class="p">,</span> <span class="n">refit_metric</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;return results dict and best dict for given outputs</span>
 <span class="sd">        Taken from sklearn.model_selection._search.BaseSearchCV.fit&quot;&quot;&quot;</span>
