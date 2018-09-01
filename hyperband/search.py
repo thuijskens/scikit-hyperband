@@ -378,6 +378,9 @@ class HyperbandSearchCV(BaseSearchCV):
             pre_dispatch=pre_dispatch, error_score=error_score,
             return_train_score=return_train_score)
 
+    def _run_search(self, evaluate_candidates):
+        pass
+
     def _process_results(self, out, n_splits, scorers, refit_metric):
         """return results dict and best dict for given outputs
         Taken from sklearn.model_selection._search.BaseSearchCV.fit"""
