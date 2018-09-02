@@ -22,8 +22,6 @@ def setup():
 
     return model, param_dist, X, y, rng
 
-"""
-TODO: This test fails due to the random state not being properly fixed
 
 def test_hyperband():
     model, param_dist, X, y, rng = setup()
@@ -41,9 +39,8 @@ def test_hyperband():
         'n_estimators': 81
     }
 
-    # assert(results.shape[0] == 186) TODO: sort out what the expected n_i and r_i values are
+    assert(len(search.cv_results_['hyperband_bracket']) == 187)
     assert(search.best_params_ == expected_params)
-"""
 
 
 def test_multimetric_hyperband():
