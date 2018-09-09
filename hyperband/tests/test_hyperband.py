@@ -1,3 +1,4 @@
+from nose.tools import raises
 from hyperband import HyperbandSearchCV
 
 from sklearn.ensemble import RandomForestClassifier
@@ -51,3 +52,20 @@ def test_min_resource_param():
     search.fit(X, y)
 
     assert(search.cv_results_['param_n_estimators'].data.min() == 3)
+
+
+@raises(ValueError)
+def test_skip_last_raise():
+    model, param_dist, X, y, rng = setup()
+    search = HyperbandSearchCV(model, param_dist, skip_last=10, random_state=rng)
+    search.fit(X, y)
+
+
+def test_skip_last():
+    model, param_dist, X, y, rng = setup()
+    search = HyperbandSearchCV(model, param_dist, skip_last=1, random_state=rng)
+    search.fit(X, y)
+
+    # 177 Because in every round the last search is dropped
+    # 187 - (1 + 1 + 1 + 2 + 5)
+    assert (len(search.cv_results_['hyperband_bracket']) == 177)
