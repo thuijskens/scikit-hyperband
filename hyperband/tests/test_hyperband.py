@@ -68,6 +68,15 @@ def test_multimetric_hyperband():
     # assert(search.best_params_ == results[results.rank_test_roc_auc == 1].params.values)
 
 
+def test_warm_start():
+    model, param_dist, X, y, rng = setup()
+
+    model.set_params(warm_start=True)
+    search = HyperbandSearchCV(model, param_dist, random_state=rng, warm_start=True,
+                               verbose=1)
+    search.fit(X, y)
+
+
 def test_min_resource_param():
     model, param_dist, X, y, rng = setup()
     search = HyperbandSearchCV(model, param_dist, min_iter=3, random_state=rng,

@@ -185,6 +185,11 @@ class HyperbandSearchCV(BaseSearchCV):
         Refer `User Guide <http://scikit-learn.org/stable/modules/cross_validation.html>`_
         for the various cross-validation strategies that can be used here.
 
+    warm_start : bool, optional (default=False)
+        When set to ``True``, reuse the solution of the previous call to fit
+        for ``base_estimator`` in subsequent brackets, otherwise fits new
+        estimators in every bracket.
+
     refit : boolean, or string default=True
         Refit an estimator using the best found parameters on the whole
         dataset.
@@ -361,7 +366,7 @@ class HyperbandSearchCV(BaseSearchCV):
     def __init__(self, estimator, param_distributions,
                  resource_param='n_estimators', eta=3, min_iter=1,
                  max_iter=81, skip_last=0, scoring=None, n_jobs=1,
-                 iid=True, refit=True, cv=None,
+                 iid=True, refit=True, cv=None, warm_start=False,
                  verbose=0, pre_dispatch='2*n_jobs', random_state=None,
                  error_score='raise', return_train_score=False):
         self.param_distributions = param_distributions
@@ -370,6 +375,7 @@ class HyperbandSearchCV(BaseSearchCV):
         self.min_iter = min_iter
         self.max_iter = max_iter
         self.skip_last = skip_last
+        self.warm_start = warm_start
         self.random_state = random_state
 
         super(HyperbandSearchCV, self).__init__(
@@ -476,6 +482,14 @@ class HyperbandSearchCV(BaseSearchCV):
                              (self.resource_param,
                               self.estimator.__class__.__name__))
 
+        if not isinstance(self.warm_start, bool):
+            raise ValueError('warm_start should be a boolean, got %s' %
+                             self.warm_start)
+
+        if self.warm_start and 'warm_start' not in self.estimator.get_params().keys():
+            raise ValueError('warm_start set to True, but estimator does not '
+                             'have a warm_start parameter')
+
     def fit(self, X, y=None, groups=None, **fit_params):
         """Run fit with all sets of parameters.
 
@@ -545,6 +559,10 @@ class HyperbandSearchCV(BaseSearchCV):
                                                    n_iter=n,
                                                    random_state=random_state))
 
+            if self.warm_start:
+                models = {str(configuration): [clone(base_estimator) for _ in range(n_splits)]
+                          for configuration in configurations}
+
             if self.verbose > 0:
                 print('Starting bracket {0} (out of {1}) of hyperband'
                       .format(round_index + 1, s_max + 1))
@@ -574,10 +592,16 @@ class HyperbandSearchCV(BaseSearchCV):
                     parameters = copy.deepcopy(configuration)
                     parameters[self.resource_param] = n_iterations
 
-                    for train, test in cv.split(X, y, groups):
+                    for split_idx, (train, test) in enumerate(cv.split(X, y, groups)):
+                        if self.warm_start:
+                            model = models[str(configuration)][split_idx]
+                        else:
+                            model = clone(base_estimator)
+
                         jobs.append(delayed(_fit_and_score)(
-                            clone(base_estimator), X, y, scorers,
-                            train, test, self.verbose, parameters,
+                            model, X, y, scorers,
+                            train, test, self.verbose,
+                            parameters=parameters,
                             fit_params=fit_params,
                             return_train_score=self.return_train_score,
                             return_n_test_samples=True,
@@ -599,6 +623,13 @@ class HyperbandSearchCV(BaseSearchCV):
                                                                key=lambda x: x[0])]
 
                     configurations = top_configurations[:n_to_keep]
+
+                    # top_configurations contains the cost parameter in each
+                    # dictionary, but the models lookup does not. Need to
+                    # remove that parameter in case of warm start learning.
+                    if self.warm_start:
+                        for configuration in configurations:
+                            configuration.pop(self.resource_param)
 
             if self.skip_last > 0:
                 print('Skipping the last {0} successive halving iterations'

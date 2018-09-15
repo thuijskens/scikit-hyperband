@@ -1,6 +1,7 @@
 from nose.tools import raises
 from hyperband import HyperbandSearchCV
 
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier
 from scipy.stats import randint as sp_randint
 
@@ -55,3 +56,16 @@ def test_check_eta():
 def test_check_eta():
     model, param_dist = setup()
     HyperbandSearchCV(model, param_dist, resource_param='wrong_name')._validate_input()
+
+
+@raises(ValueError)
+def test_warm_start_keys():
+    model, param_dist = setup()
+    model = KNeighborsClassifier()
+    HyperbandSearchCV(model, param_dist, resource_param='n_neighbors', warm_start=True)._validate_input()
+
+
+@raises(ValueError)
+def test_warm_start_type():
+    model, param_dist = setup()
+    HyperbandSearchCV(model, param_dist, warm_start='test')._validate_input()
