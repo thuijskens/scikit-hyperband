@@ -17,34 +17,36 @@
   
 
   
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+        <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
 
-  
-  
     
 
   
-
   <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
   <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
   <link rel="stylesheet" href="_static/gallery.css" type="text/css" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="API Documentation" href="api.html" /> 
-
-  
-  <script src="_static/js/modernizr.min.js"></script>
-
 </head>
 
 <body class="wy-body-for-nav">
 
    
   <div class="wy-grid-for-nav">
-
     
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
-        <div class="wy-side-nav-search">
+        <div class="wy-side-nav-search" >
           
 
           
@@ -152,8 +154,8 @@
   <div class="section" id="welcome-to-scikit-hyperband-s-documentation">
 <h1>Welcome to scikit-hyperband’s documentation!<a class="headerlink" href="#welcome-to-scikit-hyperband-s-documentation" title="Permalink to this headline">¶</a></h1>
 <p>This project contains an implementation of the hyperband algorithm.</p>
-<p>Hyperband is an algorithm that can be used to find a good hyperparameter configuration for (machine learning) algorithms. The idea is based on the assumption that if a configuration is destined to be the best after a large number of iterations, it is more likely than not to perform in the top half of configurations after a small number of iterations <a class="footnote-reference" href="#id3" id="id1">[1]</a>. Hyperband does not emphasize the absolute performance of an algorithm, but more so its relative performance compared with many alternatives trained for the same number of iterations.</p>
-<p>The authors of hyperband acknowledge that there are exceptions to this assumption, and the algorithm accounts for this by hedging over varying degrees of aggressiveness balancing breadth versus depth based search (exploration versus exploitation). For a precise description of the algorithm, we refer you to this page <a class="footnote-reference" href="#id4" id="id2">[2]</a> written by the authors of the algorithm.</p>
+<p>Hyperband is an algorithm that can be used to find a good hyperparameter configuration for (machine learning) algorithms. The idea is based on the assumption that if a configuration is destined to be the best after a large number of iterations, it is more likely than not to perform in the top half of configurations after a small number of iterations <a class="footnote-reference brackets" href="#id3" id="id1">1</a>. Hyperband does not emphasize the absolute performance of an algorithm, but more so its relative performance compared with many alternatives trained for the same number of iterations.</p>
+<p>The authors of hyperband acknowledge that there are exceptions to this assumption, and the algorithm accounts for this by hedging over varying degrees of aggressiveness balancing breadth versus depth based search (exploration versus exploitation). For a precise description of the algorithm, we refer you to this page <a class="footnote-reference brackets" href="#id4" id="id2">2</a> written by the authors of the algorithm.</p>
 <blockquote>
 <div><div class="toctree-wrapper compound">
 <ul>
@@ -165,28 +167,24 @@
 </div>
 <div class="section" id="references">
 <h1>References<a class="headerlink" href="#references" title="Permalink to this headline">¶</a></h1>
-<table class="docutils footnote" frame="void" id="id3" rules="none">
-<colgroup><col class="label" /><col /></colgroup>
-<tbody valign="top">
-<tr><td class="label"><a class="fn-backref" href="#id1">[1]</a></td><td>Li, L., Jamieson, K., DeSalvo, G., Rostamizadeh, A. and Talwalkar, A.,
+<dl class="footnote brackets">
+<dt class="label" id="id3"><span class="brackets"><a class="fn-backref" href="#id1">1</a></span></dt>
+<dd><p>Li, L., Jamieson, K., DeSalvo, G., Rostamizadeh, A. and Talwalkar, A.,
 2017. Hyperband: A novel bandit-based approach to hyperparameter
 optimization. The Journal of Machine Learning Research, 18(1),
-pp.6765-6816.</td></tr>
-</tbody>
-</table>
-<table class="docutils footnote" frame="void" id="id4" rules="none">
-<colgroup><col class="label" /><col /></colgroup>
-<tbody valign="top">
-<tr><td class="label"><a class="fn-backref" href="#id2">[2]</a></td><td><a class="reference external" href="https://people.eecs.berkeley.edu/~kjamieson/hyperband.html">https://people.eecs.berkeley.edu/~kjamieson/hyperband.html</a></td></tr>
-</tbody>
-</table>
+pp.6765-6816.</p>
+</dd>
+<dt class="label" id="id4"><span class="brackets"><a class="fn-backref" href="#id2">2</a></span></dt>
+<dd><p><a class="reference external" href="https://people.eecs.berkeley.edu/~kjamieson/hyperband.html">https://people.eecs.berkeley.edu/~kjamieson/hyperband.html</a></p>
+</dd>
+</dl>
 </div>
 <div class="section" id="indices-and-tables">
 <h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
 <ul class="simple">
-<li><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></li>
-<li><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></li>
-<li><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></li>
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
 </ul>
 </div>
 
@@ -208,7 +206,7 @@ pp.6765-6816.</td></tr>
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2018, Thomas Huijskens.
+        &copy; Copyright 2018, Thomas Huijskens
 
     </p>
   </div>
@@ -225,32 +223,16 @@ pp.6765-6816.</td></tr>
   
 
 
-  
-
-    <script type="text/javascript">
-        var DOCUMENTATION_OPTIONS = {
-            URL_ROOT:'./',
-            VERSION:'0.1.0',
-            LANGUAGE:'None',
-            COLLAPSE_INDEX:false,
-            FILE_SUFFIX:'.html',
-            HAS_SOURCE:  true,
-            SOURCELINK_SUFFIX: '.txt'
-        };
-    </script>
-      <script type="text/javascript" src="_static/jquery.js"></script>
-      <script type="text/javascript" src="_static/underscore.js"></script>
-      <script type="text/javascript" src="_static/doctools.js"></script>
-
-  
-
-  <script type="text/javascript" src="_static/js/theme.js"></script>
-
   <script type="text/javascript">
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script> 
+  </script>
+
+  
+  
+    
+   
 
 </body>
 </html>
