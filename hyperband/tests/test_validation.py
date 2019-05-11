@@ -21,14 +21,12 @@ def setup():
 def test_check_min_iter():
     model, param_dist = setup()
     HyperbandSearchCV(model, param_dist, min_iter=-1)._validate_input()
-    HyperbandSearchCV(model, param_dist, min_iter='test')._validate_input()
 
 
 @raises(ValueError)
 def test_check_max_iter():
     model, param_dist = setup()
     HyperbandSearchCV(model, param_dist, max_iter=-1)._validate_input()
-    HyperbandSearchCV(model, param_dist, max_iter='test')._validate_input()
 
 
 @raises(ValueError)
@@ -41,17 +39,15 @@ def test_check_min_iter_smaller_max_iter():
 def test_check_skip_last():
     model, param_dist = setup()
     HyperbandSearchCV(model, param_dist, skip_last=-1)._validate_input()
-    HyperbandSearchCV(model, param_dist, skip_last='test')._validate_input()
 
 
 @raises(ValueError)
 def test_check_eta():
     model, param_dist = setup()
     HyperbandSearchCV(model, param_dist, eta=0)._validate_input()
-    HyperbandSearchCV(model, param_dist, eta='test')._validate_input()
 
 
 @raises(ValueError)
-def test_check_eta():
+def test_check_resource_param():
     model, param_dist = setup()
     HyperbandSearchCV(model, param_dist, resource_param='wrong_name')._validate_input()

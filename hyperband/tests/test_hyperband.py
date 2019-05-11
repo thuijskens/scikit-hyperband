@@ -1,3 +1,4 @@
+from nose.tools import raises
 from hyperband import HyperbandSearchCV
 
 from sklearn.ensemble import RandomForestClassifier
@@ -13,7 +14,6 @@ def setup():
     param_dist = {'max_depth': [3, None],
                   'max_features': sp_randint(1, 11),
                   'min_samples_split': sp_randint(2, 11),
-                  'min_samples_leaf': sp_randint(1, 11),
                   'bootstrap': [True, False],
                   'criterion': ['gini', 'entropy']}
     
@@ -21,29 +21,6 @@ def setup():
     X, y = digits.data, digits.target
 
     return model, param_dist, X, y, rng
-
-"""
-TODO: This test fails due to the random state not being properly fixed
-
-def test_hyperband():
-    model, param_dist, X, y, rng = setup()
-    search = HyperbandSearchCV(model, param_dist, random_state=rng)
-    search.fit(X, y)
-
-    # results = pd.DataFrame(search.cv_results_)
-    expected_params = {
-        'bootstrap': False,
-        'criterion': 'entropy',
-        'max_depth': None,
-        'max_features': 7,
-        'min_samples_leaf': 2,
-        'min_samples_split': 2,
-        'n_estimators': 81
-    }
-
-    # assert(results.shape[0] == 186) TODO: sort out what the expected n_i and r_i values are
-    assert(search.best_params_ == expected_params)
-"""
 
 
 def test_multimetric_hyperband():
@@ -65,7 +42,7 @@ def test_multimetric_hyperband():
 
     assert('mean_test_roc_auc' in search.cv_results_.keys())
     assert('mean_test_accuracy' in search.cv_results_.keys())
-    # assert(search.best_params_ == results[results.rank_test_roc_auc == 1].params.values)
+    assert (len(search.cv_results_['hyperband_bracket']) == 187)
 
 
 def test_min_resource_param():
@@ -75,3 +52,20 @@ def test_min_resource_param():
     search.fit(X, y)
 
     assert(search.cv_results_['param_n_estimators'].data.min() == 3)
+
+
+@raises(ValueError)
+def test_skip_last_raise():
+    model, param_dist, X, y, rng = setup()
+    search = HyperbandSearchCV(model, param_dist, skip_last=10, random_state=rng)
+    search.fit(X, y)
+
+
+def test_skip_last():
+    model, param_dist, X, y, rng = setup()
+    search = HyperbandSearchCV(model, param_dist, skip_last=1, random_state=rng)
+    search.fit(X, y)
+
+    # 177 Because in every round the last search is dropped
+    # 187 - (1 + 1 + 1 + 2 + 5)
+    assert (len(search.cv_results_['hyperband_bracket']) == 177)

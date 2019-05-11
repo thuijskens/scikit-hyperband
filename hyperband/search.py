@@ -20,53 +20,15 @@ References
 
 """
 import copy
-from collections import defaultdict
-from functools import partial
 
 import numpy as np
 from scipy.stats import rankdata
 
-from sklearn.base import is_classifier, clone
-from sklearn.externals import six
-from sklearn.externals.joblib import Parallel, delayed
-from sklearn.metrics.scorer import _check_multimetric_scoring
 from sklearn.utils import check_random_state
-from sklearn.utils.validation import indexable
-from sklearn.utils.fixes import MaskedArray
-
 from sklearn.model_selection._search import BaseSearchCV, ParameterSampler
-from sklearn.model_selection._split import check_cv
-from sklearn.model_selection._validation import _aggregate_score_dicts, _fit_and_score
 
 
 __all__ = ['HyperbandSearchCV']
-
-
-def _store_results(results, n_splits, n_candidates, key_name,
-                   array, weights=None, splits=False, rank=False):
-    """A small helper to store the scores/times to the cv_results_
-    Taken from sklearn.model_selection._search.BaseSearchCV
-    """
-    array = np.array(array, dtype=np.float64).reshape(n_candidates,
-                                                      n_splits)
-    if splits:
-        for split_i in range(n_splits):
-            results["split%d_%s"
-                    % (split_i, key_name)] = array[:, split_i]
-
-    array_means = np.average(array, axis=1, weights=weights)
-    results['mean_%s' % key_name] = array_means
-    # Weighted std is not directly available in numpy
-    array_stds = np.sqrt(np.average((array -
-                                     array_means[:, np.newaxis]) ** 2,
-                                    axis=1, weights=weights))
-    results['std_%s' % key_name] = array_stds
-
-    if rank:
-        results["rank_%s" % key_name] = np.asarray(
-            rankdata(-array_means, method='min'), dtype=np.int32)
-
-    return results
 
 
 class HyperbandSearchCV(BaseSearchCV):
@@ -379,162 +341,16 @@ class HyperbandSearchCV(BaseSearchCV):
             return_train_score=return_train_score)
 
     def _run_search(self, evaluate_candidates):
-        pass
+        self._validate_input()
 
-    def _process_results(self, out, n_splits, scorers, refit_metric):
-        """return results dict and best dict for given outputs
-        Taken from sklearn.model_selection._search.BaseSearchCV.fit"""
-
-        # if one choose to see train score, "out" will contain train score info
-        if self.return_train_score:
-            (train_score_dicts, test_score_dicts, test_sample_counts,
-             fit_time, score_time, parameters, bracket) = zip(*out)
-        else:
-            (test_score_dicts, test_sample_counts,
-             fit_time, score_time, parameters, bracket) = zip(*out)
-
-        candidate_params = parameters[::n_splits]
-        n_candidates = len(candidate_params)
-
-        # test_score_dicts and train_score dicts are lists of dictionaries and
-        # we make them into dict of lists
-        test_scores = _aggregate_score_dicts(test_score_dicts)
-        if self.return_train_score:
-            train_scores = _aggregate_score_dicts(train_score_dicts)
-
-        results = dict()
-
-        # Use one MaskedArray and mask all the places where the param is not
-        # applicable for that candidate. Use defaultdict as each candidate may
-        # not contain all the params
-        param_results = defaultdict(partial(MaskedArray,
-                                            np.empty(n_candidates,),
-                                            mask=True,
-                                            dtype=object))
-        for cand_i, params in enumerate(candidate_params):
-            for name, value in params.items():
-                # An all masked empty array gets created for the key
-                # `"param_%s" % name` at the first occurence of `name`.
-                # Setting the value at an index also unmasks that index
-                param_results["param_%s" % name][cand_i] = value
-
-        results.update(param_results)
-
-        # Store a list of param dicts at the key 'params'
-        results['params'] = candidate_params
-
-        # Computed the (weighted) mean and std for test scores alone
-        # NOTE test_sample counts (weights) remain the same for all candidates
-        test_sample_counts = np.array(test_sample_counts[:n_splits],
-                                      dtype=np.int)
-
-        for scorer_name in scorers.keys():
-            # Computed the (weighted) mean and std for test scores alone
-            results = _store_results(results, n_splits, n_candidates,
-                                     'test_%s' % scorer_name, test_scores[scorer_name],
-                                     splits=True, rank=True, weights=test_sample_counts if self.iid else None)
-            if self.return_train_score:
-                results = _store_results(
-                    results, n_splits, n_candidates,
-                    'train_%s' % scorer_name, train_scores[scorer_name], splits=True)
-
-        results = _store_results(
-            results, n_splits, n_candidates, 'fit_time', fit_time)
-        results = _store_results(
-            results, n_splits, n_candidates, 'score_time', score_time)
-        results['hyperband_bracket'] = np.array(bracket[::n_splits])
-
-        best_index = results["rank_test_%s" % refit_metric].argmin()
-
-        return results, best_index
-
-    def _validate_input(self):
-        if not isinstance(self.min_iter, int) or self.min_iter <= 0:
-            raise ValueError('min_iter should be a positive integer, got %s' %
-                             self.min_iter)
-
-        if not isinstance(self.max_iter, int) or self.max_iter <= 0:
-            raise ValueError('max_iter should be a positive integer, got %s' %
-                             self.max_iter)
-
-        if self.max_iter < self.min_iter:
-            raise ValueError('max_iter should be bigger than min_iter, got'
-                             'max_iter=%d and min_iter=%d' % (self.max_iter,
-                                                              self.min_iter))
-
-        if not isinstance(self.skip_last, int) or self.skip_last < 0:
-            raise ValueError('skip_last should be an integer, got %s' %
-                             self.skip_last)
-
-        if not isinstance(self.eta, int) or not self.eta > 1:
-            raise ValueError('eta should be a positive integer, got %s' %
-                             self.eta)
-
-        if self.resource_param not in self.estimator.get_params().keys():
-            raise ValueError('resource_param is set to %s, but base_estimator %s '
-                             'does not have a parameter with that name' %
-                             (self.resource_param,
-                              self.estimator.__class__.__name__))
-
-    def fit(self, X, y=None, groups=None, **fit_params):
-        """Run fit with all sets of parameters.
-
-        Parameters
-        ----------
-        X : array-like, shape = [n_samples, n_features]
-            Training vector, where n_samples is the number of samples and
-            n_features is the number of features.
-
-        y : array-like, shape = [n_samples] or [n_samples, n_output], optional
-            Target relative to X for classification or regression;
-            None for unsupervised learning.
-
-        groups : array-like, with shape (n_samples,), optional
-            Group labels for the samples used while splitting the dataset into
-            train/test set.
-
-        **fit_params : dict of string -> object
-            Parameters passed to the ``fit`` method of the estimator
-        """
-        estimator = self.estimator
-        cv = check_cv(self.cv, y, classifier=is_classifier(estimator))
-
-        scorers, self.multimetric_ = _check_multimetric_scoring(
-            self.estimator, scoring=self.scoring)
-
-        if self.multimetric_:
-            if self.refit is not False and (
-                    not isinstance(self.refit, six.string_types) or
-                    # This will work for both dict / list (tuple)
-                    self.refit not in scorers):
-                raise ValueError("For multi-metric scoring, the parameter "
-                                 "refit must be set to a scorer key "
-                                 "to refit an estimator with the best "
-                                 "parameter setting on the whole data and "
-                                 "make the best_* attributes "
-                                 "available for that metric. If this is not "
-                                 "needed, refit should be set to False "
-                                 "explicitly. %r was passed." % self.refit)
-            else:
-                refit_metric = self.refit
-        else:
-            refit_metric = 'score'
-
-        X, y, groups = indexable(X, y, groups)
-        n_splits = cv.get_n_splits(X, y, groups)
-
-        base_estimator = clone(self.estimator)
-        pre_dispatch = self.pre_dispatch
-        random_state = check_random_state(self.random_state)
-
-        # Here is where hyperband comes into play
         s_max = int(np.floor(np.log(self.max_iter / self.min_iter) / np.log(self.eta)))
         B = (s_max + 1) * self.max_iter
 
+        refit_metric = self.refit if self.multimetric_ else 'score'
+        random_state = check_random_state(self.random_state)
+
         if self.skip_last > s_max:
             raise ValueError('skip_last is higher than the total number of rounds')
-
-        all_results = []
 
         for round_index, s in enumerate(reversed(range(s_max + 1))):
             n = int(np.ceil(int(B / self.max_iter / (s + 1)) * np.power(self.eta, s)))
@@ -568,32 +384,14 @@ class HyperbandSearchCV(BaseSearchCV):
                                      n_to_keep)
                     print(msg)
 
-                # Create a queue with jobs for joblib
-                jobs = []
-                for configuration in configurations:
-                    parameters = copy.deepcopy(configuration)
-                    parameters[self.resource_param] = n_iterations
+                # Set the cost parameter for every configuration
+                parameters = copy.deepcopy(configurations)
+                for configuration in parameters:
+                    configuration[self.resource_param] = n_iterations
 
-                    for train, test in cv.split(X, y, groups):
-                        jobs.append(delayed(_fit_and_score)(
-                            clone(base_estimator), X, y, scorers,
-                            train, test, self.verbose, parameters,
-                            fit_params=fit_params,
-                            return_train_score=self.return_train_score,
-                            return_n_test_samples=True,
-                            return_times=True, return_parameters=True,
-                            error_score=self.error_score
-                        ))
-
-                out = Parallel(
-                    n_jobs=self.n_jobs, verbose=self.verbose,
-                    pre_dispatch=pre_dispatch)(jobs)
-                # Add hyperband bracket to output
-                out = [[*run, s + 1] for run in out]
-                all_results += out
+                results = evaluate_candidates(parameters)
 
                 if n_to_keep > 0:
-                    results, _ = self._process_results(out, n_splits, scorers, refit_metric)
                     top_configurations = [x for _, x in sorted(zip(results['rank_test_%s' % refit_metric],
                                                                    results['params']),
                                                                key=lambda x: x[0])]
@@ -604,29 +402,67 @@ class HyperbandSearchCV(BaseSearchCV):
                 print('Skipping the last {0} successive halving iterations'
                       .format(self.skip_last))
 
-        # Collect all results. This is where hyperband ends and sklearn code
-        # takes over
-        all_models, best_index = self._process_results(all_results, n_splits, scorers, refit_metric)
+    def fit(self, X, y=None, groups=None, **fit_params):
+        """Run fit with all sets of parameters.
 
-        # For multi-metric evaluation, store the best_index_, best_params_ and
-        # best_score_ if refit is one of the scorer names
-        # In single metric evaluation, refit_metric is "score"
-        if self.refit or not self.multimetric_:
-            self.best_params_ = all_models['params'][best_index]
-            self.best_score_ = all_models["mean_test_%s" % refit_metric][best_index]
+        Parameters
+        ----------
+        X : array-like, shape = [n_samples, n_features]
+            Training vector, where n_samples is the number of samples and
+            n_features is the number of features.
 
-        if self.refit:
-            self.best_estimator_ = clone(base_estimator).set_params(
-                **self.best_params_)
-            if y is not None:
-                self.best_estimator_.fit(X, y, **fit_params)
-            else:
-                self.best_estimator_.fit(X, **fit_params)
+        y : array-like, shape = [n_samples] or [n_samples, n_output], optional
+            Target relative to X for classification or regression;
+            None for unsupervised learning.
 
-        # Store the only scorer not as a dict for single metric evaluation
-        self.scorer_ = scorers if self.multimetric_ else scorers['score']
+        groups : array-like, with shape (n_samples,), optional
+            Group labels for the samples used while splitting the dataset into
+            train/test set.
 
-        self.cv_results_ = all_models
-        self.n_splits_ = n_splits
+        **fit_params : dict of string -> object
+            Parameters passed to the ``fit`` method of the estimator
+        """
+        super().fit(X, y, groups, **fit_params)
+
+        s_max = int(np.floor(np.log(self.max_iter / self.min_iter) / np.log(self.eta)))
+        B = (s_max + 1) * self.max_iter
+
+        brackets = []
+        for round_index, s in enumerate(reversed(range(s_max + 1))):
+            n = int(np.ceil(int(B / self.max_iter / (s + 1)) * np.power(self.eta, s)))
+            n_configs = int(sum([np.floor(n / np.power(self.eta, i))
+                                 for i in range((s + 1) - self.skip_last)]))
+            bracket = (round_index + 1) * np.ones(n_configs)
+            brackets.append(bracket)
+
+        self.cv_results_['hyperband_bracket'] = np.hstack(brackets)
 
         return self
+
+    def _validate_input(self):
+        if not isinstance(self.min_iter, int) or self.min_iter <= 0:
+            raise ValueError('min_iter should be a positive integer, got %s' %
+                             self.min_iter)
+
+        if not isinstance(self.max_iter, int) or self.max_iter <= 0:
+            raise ValueError('max_iter should be a positive integer, got %s' %
+                             self.max_iter)
+
+        if self.max_iter < self.min_iter:
+            raise ValueError('max_iter should be bigger than min_iter, got'
+                             'max_iter=%d and min_iter=%d' % (self.max_iter,
+                                                              self.min_iter))
+
+        if not isinstance(self.skip_last, int) or self.skip_last < 0:
+            raise ValueError('skip_last should be an integer, got %s' %
+                             self.skip_last)
+
+        if not isinstance(self.eta, int) or not self.eta > 1:
+            raise ValueError('eta should be a positive integer, got %s' %
+                             self.eta)
+
+        if self.resource_param not in self.estimator.get_params().keys():
+            raise ValueError('resource_param is set to %s, but base_estimator %s '
+                             'does not have a parameter with that name' %
+                             (self.resource_param,
+                              self.estimator.__class__.__name__))
