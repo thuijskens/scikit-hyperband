@@ -19,9 +19,9 @@ Introductory examples.
 
 .. only:: html
 
-    .. figure:: /auto_examples/images/thumb/sphx_glr_random_forest_example_thumb.png
+ .. figure:: /auto_examples/images/thumb/sphx_glr_random_forest_example_thumb.png
 
-        :ref:`sphx_glr_auto_examples_random_forest_example.py`
+     :ref:`sphx_glr_auto_examples_random_forest_example.py`
 
 .. raw:: html
 
@@ -34,7 +34,7 @@ Introductory examples.
    /auto_examples/random_forest_example
 .. raw:: html
 
-    <div style='clear:both'></div>
+    <div class="sphx-glr-clear"></div>
 
 
 

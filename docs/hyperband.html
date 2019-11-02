@@ -155,7 +155,7 @@
 <p>The documentation of the scikit-hyperband module.</p>
 <span class="target" id="module-hyperband"></span><dl class="class">
 <dt id="hyperband.HyperbandSearchCV">
-<em class="property">class </em><code class="descclassname">hyperband.</code><code class="descname">HyperbandSearchCV</code><span class="sig-paren">(</span><em>estimator</em>, <em>param_distributions</em>, <em>resource_param='n_estimators'</em>, <em>eta=3</em>, <em>min_iter=1</em>, <em>max_iter=81</em>, <em>skip_last=0</em>, <em>scoring=None</em>, <em>n_jobs=1</em>, <em>iid=True</em>, <em>refit=True</em>, <em>cv=None</em>, <em>verbose=0</em>, <em>pre_dispatch='2*n_jobs'</em>, <em>random_state=None</em>, <em>error_score='raise'</em>, <em>return_train_score=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/hyperband/search.html#HyperbandSearchCV"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#hyperband.HyperbandSearchCV" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">hyperband.</code><code class="sig-name descname">HyperbandSearchCV</code><span class="sig-paren">(</span><em class="sig-param">estimator</em>, <em class="sig-param">param_distributions</em>, <em class="sig-param">resource_param='n_estimators'</em>, <em class="sig-param">eta=3</em>, <em class="sig-param">min_iter=1</em>, <em class="sig-param">max_iter=81</em>, <em class="sig-param">skip_last=0</em>, <em class="sig-param">scoring=None</em>, <em class="sig-param">n_jobs=1</em>, <em class="sig-param">iid=True</em>, <em class="sig-param">refit=True</em>, <em class="sig-param">cv=None</em>, <em class="sig-param">verbose=0</em>, <em class="sig-param">pre_dispatch='2*n_jobs'</em>, <em class="sig-param">random_state=None</em>, <em class="sig-param">error_score='raise'</em>, <em class="sig-param">return_train_score=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/hyperband/search.html#HyperbandSearchCV"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#hyperband.HyperbandSearchCV" title="Permalink to this definition">¶</a></dt>
 <dd><p>Hyperband search on hyper parameters.</p>
 <p>HyperbandSearchCV implements a <code class="docutils literal notranslate"><span class="pre">fit</span></code> and a <code class="docutils literal notranslate"><span class="pre">score</span></code> method.
 It also implements <code class="docutils literal notranslate"><span class="pre">predict</span></code>, <code class="docutils literal notranslate"><span class="pre">predict_proba</span></code>, <code class="docutils literal notranslate"><span class="pre">decision_function</span></code>,
@@ -322,7 +322,7 @@ pp.6765-6816.</p>
 <dt><strong>cv_results_</strong><span class="classifier">dict of numpy (masked) ndarrays</span></dt><dd><p>A dict with keys as column headers and values as columns, that can be
 imported into a pandas <code class="docutils literal notranslate"><span class="pre">DataFrame</span></code>.</p>
 <p>For instance the below given table</p>
-<table class="docutils align-center">
+<table class="docutils align-default">
 <colgroup>
 <col style="width: 19%" />
 <col style="width: 17%" />
@@ -441,7 +441,7 @@ parameters for the model.</p>
 </dl>
 <dl class="method">
 <dt id="hyperband.HyperbandSearchCV.decision_function">
-<code class="descname">decision_function</code><span class="sig-paren">(</span><em>self</em>, <em>X</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.decision_function" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">decision_function</code><span class="sig-paren">(</span><em class="sig-param">self</em>, <em class="sig-param">X</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.decision_function" title="Permalink to this definition">¶</a></dt>
 <dd><p>Call decision_function on the estimator with the best found parameters.</p>
 <p>Only available if <code class="docutils literal notranslate"><span class="pre">refit=True</span></code> and the underlying estimator supports
 <code class="docutils literal notranslate"><span class="pre">decision_function</span></code>.</p>
@@ -458,7 +458,7 @@ underlying estimator.</p>
 
 <dl class="method">
 <dt id="hyperband.HyperbandSearchCV.fit">
-<code class="descname">fit</code><span class="sig-paren">(</span><em>self</em>, <em>X</em>, <em>y=None</em>, <em>groups=None</em>, <em>**fit_params</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/hyperband/search.html#HyperbandSearchCV.fit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#hyperband.HyperbandSearchCV.fit" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">fit</code><span class="sig-paren">(</span><em class="sig-param">self</em>, <em class="sig-param">X</em>, <em class="sig-param">y=None</em>, <em class="sig-param">groups=None</em>, <em class="sig-param">**fit_params</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/hyperband/search.html#HyperbandSearchCV.fit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#hyperband.HyperbandSearchCV.fit" title="Permalink to this definition">¶</a></dt>
 <dd><p>Run fit with all sets of parameters.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -481,7 +481,7 @@ train/test set.</p>
 
 <dl class="method">
 <dt id="hyperband.HyperbandSearchCV.get_params">
-<code class="descname">get_params</code><span class="sig-paren">(</span><em>self</em>, <em>deep=True</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.get_params" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">get_params</code><span class="sig-paren">(</span><em class="sig-param">self</em>, <em class="sig-param">deep=True</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.get_params" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get parameters for this estimator.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -502,7 +502,7 @@ contained subobjects that are estimators.</p>
 
 <dl class="method">
 <dt id="hyperband.HyperbandSearchCV.inverse_transform">
-<code class="descname">inverse_transform</code><span class="sig-paren">(</span><em>self</em>, <em>Xt</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.inverse_transform" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">inverse_transform</code><span class="sig-paren">(</span><em class="sig-param">self</em>, <em class="sig-param">Xt</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.inverse_transform" title="Permalink to this definition">¶</a></dt>
 <dd><p>Call inverse_transform on the estimator with the best found params.</p>
 <p>Only available if the underlying estimator implements
 <code class="docutils literal notranslate"><span class="pre">inverse_transform</span></code> and <code class="docutils literal notranslate"><span class="pre">refit=True</span></code>.</p>
@@ -519,7 +519,7 @@ underlying estimator.</p>
 
 <dl class="method">
 <dt id="hyperband.HyperbandSearchCV.predict">
-<code class="descname">predict</code><span class="sig-paren">(</span><em>self</em>, <em>X</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.predict" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">predict</code><span class="sig-paren">(</span><em class="sig-param">self</em>, <em class="sig-param">X</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.predict" title="Permalink to this definition">¶</a></dt>
 <dd><p>Call predict on the estimator with the best found parameters.</p>
 <p>Only available if <code class="docutils literal notranslate"><span class="pre">refit=True</span></code> and the underlying estimator supports
 <code class="docutils literal notranslate"><span class="pre">predict</span></code>.</p>
@@ -536,7 +536,7 @@ underlying estimator.</p>
 
 <dl class="method">
 <dt id="hyperband.HyperbandSearchCV.predict_log_proba">
-<code class="descname">predict_log_proba</code><span class="sig-paren">(</span><em>self</em>, <em>X</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.predict_log_proba" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">predict_log_proba</code><span class="sig-paren">(</span><em class="sig-param">self</em>, <em class="sig-param">X</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.predict_log_proba" title="Permalink to this definition">¶</a></dt>
 <dd><p>Call predict_log_proba on the estimator with the best found parameters.</p>
 <p>Only available if <code class="docutils literal notranslate"><span class="pre">refit=True</span></code> and the underlying estimator supports
 <code class="docutils literal notranslate"><span class="pre">predict_log_proba</span></code>.</p>
@@ -553,7 +553,7 @@ underlying estimator.</p>
 
 <dl class="method">
 <dt id="hyperband.HyperbandSearchCV.predict_proba">
-<code class="descname">predict_proba</code><span class="sig-paren">(</span><em>self</em>, <em>X</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.predict_proba" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">predict_proba</code><span class="sig-paren">(</span><em class="sig-param">self</em>, <em class="sig-param">X</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.predict_proba" title="Permalink to this definition">¶</a></dt>
 <dd><p>Call predict_proba on the estimator with the best found parameters.</p>
 <p>Only available if <code class="docutils literal notranslate"><span class="pre">refit=True</span></code> and the underlying estimator supports
 <code class="docutils literal notranslate"><span class="pre">predict_proba</span></code>.</p>
@@ -570,7 +570,7 @@ underlying estimator.</p>
 
 <dl class="method">
 <dt id="hyperband.HyperbandSearchCV.score">
-<code class="descname">score</code><span class="sig-paren">(</span><em>self</em>, <em>X</em>, <em>y=None</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.score" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">score</code><span class="sig-paren">(</span><em class="sig-param">self</em>, <em class="sig-param">X</em>, <em class="sig-param">y=None</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.score" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns the score on the given data, if the estimator has been refit.</p>
 <p>This uses the score defined by <code class="docutils literal notranslate"><span class="pre">scoring</span></code> where provided, and the
 <code class="docutils literal notranslate"><span class="pre">best_estimator_.score</span></code> method otherwise.</p>
@@ -595,7 +595,7 @@ None for unsupervised learning.</p>
 
 <dl class="method">
 <dt id="hyperband.HyperbandSearchCV.set_params">
-<code class="descname">set_params</code><span class="sig-paren">(</span><em>self</em>, <em>**params</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.set_params" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">set_params</code><span class="sig-paren">(</span><em class="sig-param">self</em>, <em class="sig-param">**params</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.set_params" title="Permalink to this definition">¶</a></dt>
 <dd><p>Set the parameters of this estimator.</p>
 <p>The method works on simple estimators as well as on nested objects
 (such as pipelines). The latter have parameters of the form
@@ -612,7 +612,7 @@ component of a nested object.</p>
 
 <dl class="method">
 <dt id="hyperband.HyperbandSearchCV.transform">
-<code class="descname">transform</code><span class="sig-paren">(</span><em>self</em>, <em>X</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.transform" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">transform</code><span class="sig-paren">(</span><em class="sig-param">self</em>, <em class="sig-param">X</em><span class="sig-paren">)</span><a class="headerlink" href="#hyperband.HyperbandSearchCV.transform" title="Permalink to this definition">¶</a></dt>
 <dd><p>Call transform on the estimator with the best found parameters.</p>
 <p>Only available if the underlying estimator supports <code class="docutils literal notranslate"><span class="pre">transform</span></code> and
 <code class="docutils literal notranslate"><span class="pre">refit=True</span></code>.</p>
